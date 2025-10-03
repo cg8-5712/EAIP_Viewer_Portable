@@ -14,26 +14,35 @@ from PySide6.QtCore import QUrl, qInstallMessageHandler, QtMsgType
 # 添加 src 目录到路径
 sys.path.insert(0, str(Path(__file__).parent))
 
+from utils import Logger
 from controllers import AppController
 
 
 def qt_message_handler(msg_type, context, message):
-    """Qt 消息处理器"""
+    """Qt 消息处理器 - 将 Qt 消息转发到日志系统"""
+    import logging
+    logger = logging.getLogger("Qt")
+
     if msg_type == QtMsgType.QtDebugMsg:
-        print(f"[DEBUG] {message}")
+        logger.debug(message)
     elif msg_type == QtMsgType.QtInfoMsg:
-        print(f"[INFO] {message}")
+        logger.info(message)
     elif msg_type == QtMsgType.QtWarningMsg:
-        print(f"[WARNING] {message}")
+        logger.warning(message)
     elif msg_type == QtMsgType.QtCriticalMsg:
-        print(f"[CRITICAL] {message}")
+        logger.critical(message)
     elif msg_type == QtMsgType.QtFatalMsg:
-        print(f"[FATAL] {message}")
+        logger.fatal(message)
         sys.exit(1)
 
 
 def main():
     """主函数"""
+    # 初始化日志系统
+    Logger.setup(log_dir="logs", level=10)  # DEBUG=10
+    logger = Logger.get_logger("Main")
+    logger.info("应用程序启动")
+
     # 设置消息处理器
     qInstallMessageHandler(qt_message_handler)
 

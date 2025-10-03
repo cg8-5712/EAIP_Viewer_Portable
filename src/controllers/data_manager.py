@@ -9,6 +9,9 @@ from typing import Dict, List, Any, Optional
 from utils.zip_extractor import ZipExtractor
 from utils.chart_processor import ChartProcessor
 from utils.eaip_handler import EaipHandler
+from utils.logger import Logger
+
+logger = Logger.get_logger("DataManager")
 
 
 class DataManager(QObject):
@@ -23,6 +26,7 @@ class DataManager(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        logger.debug("初始化 DataManager")
         self._data_path = Path("./data")
         self._extractor = ZipExtractor()
         self._eaip_handler: Optional[EaipHandler] = None
@@ -31,17 +35,20 @@ class DataManager(QObject):
 
         # 初始化 EAIP 处理器
         self._initialize_eaip_handler()
+        logger.info("DataManager 初始化完成")
 
     def _initialize_eaip_handler(self):
         """初始化 EAIP 处理器"""
         try:
+            logger.debug(f"初始化 EAIP 处理器: period={self._airac_period}, dir={self._dir_name}")
             self._eaip_handler = EaipHandler(
                 self._data_path,
                 self._airac_period,
                 self._dir_name
             )
+            logger.info("EAIP 处理器初始化成功")
         except Exception as e:
-            print(f"[WARNING] EAIP 处理器初始化失败: {e}")
+            logger.warning(f"EAIP 处理器初始化失败: {e}")
 
     @Slot(str)
     def importDataFromZip(self, zip_path: str):
@@ -51,42 +58,54 @@ class DataManager(QObject):
         Args:
             zip_path: 压缩包文件路径
         """
+        logger.info(f"开始导入数据: {zip_path}")
         self.dataImportStarted.emit()
 
         try:
             # 1. 解压文件 (20%)
+            logger.debug("解压文件中...")
             self.dataImportProgress.emit(20, "正在解压文件...")
             extract_path = self._data_path / self._airac_period
             self._extractor.extract(zip_path, str(extract_path))
+            logger.info(f"文件解压完成: {extract_path}")
 
             # 2. 处理 EAIP 数据 (40%)
+            logger.debug("处理航图数据...")
             self.dataImportProgress.emit(40, "正在处理航图数据...")
 
             # 自动检测 EAIP 目录
             if self._eaip_handler:
                 detected_dir = self._eaip_handler.auto_detect_dir_name()
                 if detected_dir:
+                    logger.info(f"检测到 EAIP 目录: {detected_dir}")
                     self._dir_name = detected_dir
                     self._eaip_handler.dir_name = detected_dir
                     self._eaip_handler.terminal_path = extract_path / "Data" / detected_dir / "Terminal"
 
             # 3. 使用 ChartProcessor 处理数据 (60%)
+            logger.debug("重命名和分类航图...")
             self.dataImportProgress.emit(60, "正在重命名和分类航图...")
             processor = ChartProcessor(extract_path, self._dir_name)
             processor.process(["rename", "organize"])
+            logger.info("航图重命名和分类完成")
 
             # 4. 生成索引 (80%)
+            logger.debug("生成索引...")
             self.dataImportProgress.emit(80, "正在生成索引...")
             processor.process(["index"])
+            logger.info("索引生成完成")
 
             # 5. 加载机场数据 (100%)
+            logger.debug("加载机场数据...")
             self.dataImportProgress.emit(100, "导入完成")
             airports_data = self.loadSavedAirports()
 
+            logger.info(f"数据导入成功: {len(airports_data)} 个机场")
             self.dataImportCompleted.emit(True, f"成功导入 {len(airports_data)} 个机场数据")
             self.airportsLoaded.emit(airports_data)
 
         except Exception as e:
+            logger.error(f"导入失败: {e}", exc_info=True)
             self.dataImportCompleted.emit(False, f"导入失败: {str(e)}")
 
     @Slot(str, result=dict)

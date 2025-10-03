@@ -7,6 +7,9 @@ from controllers.data_manager import DataManager
 from controllers.pdf_handler import PdfHandler
 from models import AirportModel, ChartModel, PinModel
 from utils.config import Config
+from utils.logger import Logger
+
+logger = Logger.get_logger("AppController")
 
 
 class AppController(QObject):
@@ -18,9 +21,11 @@ class AppController(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        logger.debug("初始化 AppController")
 
         # 配置管理
         self._config = Config()
+        logger.debug(f"配置加载完成")
 
         # 数据管理
         self._data_manager = DataManager(self)
@@ -38,6 +43,8 @@ class AppController(QObject):
         self._current_airport = ""  # 当前选中的机场
         self._current_category = ""  # 当前选中的分类
 
+        logger.info("AppController 初始化完成")
+
         # 连接信号
         self._connectSignals()
 
@@ -54,6 +61,7 @@ class AppController(QObject):
     @Slot()
     def initialize(self):
         """初始化应用"""
+        logger.info("开始初始化应用")
         # 加载保存的机场数据
         self._data_manager.loadSavedAirports()
 
@@ -61,6 +69,7 @@ class AppController(QObject):
         pinned_charts = self._config.get('pinned_charts', [])
         self._pin_model.loadPinnedCharts(pinned_charts)
 
+        logger.info("应用初始化完成")
         self.initialized.emit()
 
     @Slot(str)
