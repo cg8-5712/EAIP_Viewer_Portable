@@ -57,11 +57,15 @@ class ChartProcessor:
         self.data_path = data_path
         self.dir_name = dir_name
         self.terminal_path = data_path / "Data" / dir_name / "Terminal"
-        self.json_path = data_path / "Data" / "JsonPath" / "AD.JSON"
+        self.enroute_path = data_path / "Data" / dir_name / "ENROUTE"
+        self.ad_json_path = data_path / "Data" / "JsonPath" / "AD.JSON"
+        self.enr_json_path = data_path / "Data" / "JsonPath" / "ENR.JSON"
 
         logger.debug(f"初始化 ChartProcessor: data_path={data_path}, dir_name={dir_name}")
         logger.debug(f"Terminal 路径: {self.terminal_path}")
-        logger.debug(f"JSON 路径: {self.json_path}")
+        logger.debug(f"ENROUTE 路径: {self.enroute_path}")
+        logger.debug(f"AD.JSON 路径: {self.ad_json_path}")
+        logger.debug(f"ENR.JSON 路径: {self.enr_json_path}")
 
     def validate_paths(self) -> bool:
         """验证路径有效性"""
@@ -78,6 +82,12 @@ class ChartProcessor:
             # 尝试创建
             self.terminal_path.mkdir(parents=True, exist_ok=True)
             logger.info(f"已创建 Terminal 目录: {self.terminal_path}")
+
+        if not self.enroute_path.exists():
+            logger.warning(f"ENROUTE目录不存在: {self.enroute_path}")
+            # 尝试创建
+            self.enroute_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"已创建 ENROUTE 目录: {self.enroute_path}")
 
         return True
 
@@ -132,26 +142,35 @@ class ChartProcessor:
 
     @staticmethod
     def get_icao_from_path(path: Path) -> Optional[str]:
-        """从路径提取ICAO代码"""
+        """从路径提取ICAO代码或航路图标识"""
         for i, part in enumerate(path.parts):
             if "GeneralDoc" in part:
                 return "GeneralDoc"
             if "Terminal" in part and i + 1 < len(path.parts):
                 return path.parts[i + 1]
+            if "ENROUTE" in part:
+                return "ENROUTE"
         return None
 
     def rename_chart_files(self) -> None:
-        """重命名航图文件（基于 AD.JSON）"""
-        logger.debug(f"开始重命名航图文件，JSON路径: {self.json_path}")
+        """重命名航图文件（基于 AD.JSON 和 ENR.JSON）"""
+        # 处理机场航图
+        self._rename_airport_charts()
+        # 处理航路图
+        self._rename_enroute_charts()
 
-        if not self.json_path.exists():
-            logger.warning(f"AD.JSON 文件不存在: {self.json_path}")
+    def _rename_airport_charts(self) -> None:
+        """重命名机场航图文件（基于 AD.JSON）"""
+        logger.debug(f"开始重命名机场航图文件，JSON路径: {self.ad_json_path}")
+
+        if not self.ad_json_path.exists():
+            logger.warning(f"AD.JSON 文件不存在: {self.ad_json_path}")
             return
 
         try:
-            with open(self.json_path, "r", encoding="utf-8") as file:
+            with open(self.ad_json_path, "r", encoding="utf-8") as file:
                 chart_data = json.load(file)
-            logger.info(f"读取航图数据: {len(chart_data)} 条记录")
+            logger.info(f"读取机场航图数据: {len(chart_data)} 条记录")
 
             renamed_count = 0
             for chart in chart_data:
@@ -161,8 +180,8 @@ class ChartProcessor:
                 old_path = self.data_path / chart["pdfPath"].lstrip("/")
                 icao = self.get_icao_from_path(old_path)
 
-                if not icao:
-                    logger.debug(f"无法确定 ICAO 代码: {old_path}")
+                if not icao or icao == "ENROUTE":
+                    logger.debug(f"跳过非机场航图: {old_path}")
                     continue
 
                 new_name = (chart["name"].replace(":", "-")
@@ -177,16 +196,58 @@ class ChartProcessor:
                         new_path.parent.mkdir(parents=True, exist_ok=True)
                         old_path.rename(new_path)
                         renamed_count += 1
-                        logger.debug(f"重命名: {old_path.name} -> {icao}/{new_name}")
+                        logger.debug(f"重命名机场航图: {old_path.name} -> {icao}/{new_name}")
                     except OSError as e:
                         logger.error(f"重命名失败: {old_path}, {e}")
                 else:
                     logger.debug(f"文件不存在: {old_path}")
 
-            logger.info(f"重命名完成，共处理 {renamed_count} 个文件")
+            logger.info(f"机场航图重命名完成，共处理 {renamed_count} 个文件")
 
         except Exception as e:
-            logger.error(f"重命名过程失败: {e}", exc_info=True)
+            logger.error(f"机场航图重命名过程失败: {e}", exc_info=True)
+
+    def _rename_enroute_charts(self) -> None:
+        """重命名航路图文件（基于 ENR.JSON）"""
+        logger.debug(f"开始重命名航路图文件，JSON路径: {self.enr_json_path}")
+
+        if not self.enr_json_path.exists():
+            logger.warning(f"ENR.JSON 文件不存在: {self.enr_json_path}")
+            return
+
+        try:
+            with open(self.enr_json_path, "r", encoding="utf-8") as file:
+                chart_data = json.load(file)
+            logger.info(f"读取航路图数据: {len(chart_data)} 条记录")
+
+            renamed_count = 0
+            for chart in chart_data:
+                if not chart.get("pdfPath"):
+                    continue
+
+                old_path = self.data_path / chart["pdfPath"].lstrip("/")
+
+                new_name = (chart["name"].replace(":", "-")
+                           .replace("/", "-")
+                           .replace("\\", "-") + ".pdf")
+
+                new_path = self.enroute_path / new_name
+
+                if old_path.exists():
+                    try:
+                        new_path.parent.mkdir(parents=True, exist_ok=True)
+                        old_path.rename(new_path)
+                        renamed_count += 1
+                        logger.debug(f"重命名航路图: {old_path.name} -> ENROUTE/{new_name}")
+                    except OSError as e:
+                        logger.error(f"重命名失败: {old_path}, {e}")
+                else:
+                    logger.debug(f"文件不存在: {old_path}")
+
+            logger.info(f"航路图重命名完成，共处理 {renamed_count} 个文件")
+
+        except Exception as e:
+            logger.error(f"航路图重命名过程失败: {e}", exc_info=True)
 
     def organize_airport_files(self) -> None:
         """整理机场文件到分类文件夹"""
@@ -227,67 +288,96 @@ class ChartProcessor:
         logger.debug("开始生成航图索引")
 
         try:
-            if not self.terminal_path.exists():
-                logger.error(f"Terminal 目录不存在: {self.terminal_path}")
-                return
+            # 生成机场索引
+            if self.terminal_path.exists():
+                airports = [d for d in self.terminal_path.iterdir() if d.is_dir()]
+                logger.info(f"找到 {len(airports)} 个机场目录")
 
-            airports = [d for d in self.terminal_path.iterdir() if d.is_dir()]
-            logger.info(f"找到 {len(airports)} 个机场目录")
+                for airport in airports:
+                    airport_path = self.terminal_path / airport.name
+                    logger.debug(f"处理机场 {airport.name}")
 
-            for airport in airports:
-                airport_path = self.terminal_path / airport.name
-                logger.debug(f"处理机场 {airport.name}")
+                    self.merge_special_charts(airport_path)
 
-                self.merge_special_charts(airport_path)
+                    index_entries: List[Dict[str, str]] = []
+                    chart_id = 1
 
-                index_entries: List[Dict[str, str]] = []
-                chart_id = 1
+                    # 处理根目录下的PDF文件
+                    root_pdfs = list(airport_path.glob("*.pdf"))
+                    logger.debug(f"  根目录 PDF: {len(root_pdfs)} 个")
 
-                # 处理根目录下的PDF文件
-                root_pdfs = list(airport_path.glob("*.pdf"))
-                logger.debug(f"  根目录 PDF: {len(root_pdfs)} 个")
-
-                for pdf_file in root_pdfs:
-                    path = pdf_file.name.replace("\\", "/")
-                    index_entries.append({
-                        "id": str(chart_id),
-                        "code": "general",
-                        "name": pdf_file.name,
-                        "path": path,
-                        "sort": "general"
-                    })
-                    chart_id += 1
-
-                # 处理子文件夹中的PDF文件
-                folders = [f for f in airport_path.iterdir() if f.is_dir()]
-                logger.debug(f"  子文件夹: {len(folders)} 个")
-
-                for folder in folders:
-                    folder_pdfs = list(folder.glob("*.pdf"))
-                    logger.debug(f"    {folder.name}: {len(folder_pdfs)} 个 PDF")
-
-                    for pdf_file in folder_pdfs:
-                        path = f"{folder.name}/{pdf_file.name}".replace("\\", "/")
-                        # 提取 code（去掉机场代码前缀）
-                        code = pdf_file.name.split(folder.name)[0]
-                        if f"{airport.name}-" in code:
-                            code = code.split(f"{airport.name}-")[-1]
-
+                    for pdf_file in root_pdfs:
+                        path = pdf_file.name.replace("\\", "/")
                         index_entries.append({
                             "id": str(chart_id),
-                            "code": code.strip(),
+                            "code": "general",
                             "name": pdf_file.name,
                             "path": path,
-                            "sort": folder.name
+                            "sort": "general"
                         })
                         chart_id += 1
 
-                # 保存索引文件
-                index_file = airport_path / "index.json"
+                    # 处理子文件夹中的PDF文件
+                    folders = [f for f in airport_path.iterdir() if f.is_dir()]
+                    logger.debug(f"  子文件夹: {len(folders)} 个")
+
+                    for folder in folders:
+                        folder_pdfs = list(folder.glob("*.pdf"))
+                        logger.debug(f"    {folder.name}: {len(folder_pdfs)} 个 PDF")
+
+                        for pdf_file in folder_pdfs:
+                            path = f"{folder.name}/{pdf_file.name}".replace("\\", "/")
+                            # 提取 code（去掉机场代码前缀）
+                            code = pdf_file.name.split(folder.name)[0]
+                            if f"{airport.name}-" in code:
+                                code = code.split(f"{airport.name}-")[-1]
+
+                            index_entries.append({
+                                "id": str(chart_id),
+                                "code": code.strip(),
+                                "name": pdf_file.name,
+                                "path": path,
+                                "sort": folder.name
+                            })
+                            chart_id += 1
+
+                    # 保存索引文件
+                    index_file = airport_path / "index.json"
+                    with open(index_file, "w", encoding="utf-8") as f:
+                        json.dump(index_entries, f, ensure_ascii=False, indent=4)
+
+                    logger.info(f"机场索引生成完成: {airport.name}, 图表数量: {len(index_entries)}")
+            else:
+                logger.warning(f"Terminal 目录不存在: {self.terminal_path}")
+
+            # 生成航路图索引
+            if self.enroute_path.exists():
+                logger.debug("生成航路图索引")
+                index_entries: List[Dict[str, str]] = []
+                chart_id = 1
+
+                # 处理 ENROUTE 目录下的所有 PDF 文件
+                enroute_pdfs = list(self.enroute_path.glob("*.pdf"))
+                logger.debug(f"  航路图 PDF: {len(enroute_pdfs)} 个")
+
+                for pdf_file in enroute_pdfs:
+                    index_entries.append({
+                        "id": str(chart_id),
+                        "code": "enroute",
+                        "name": pdf_file.name,
+                        "path": pdf_file.name.replace("\\", "/"),
+                        "sort": "enroute"
+                    })
+                    chart_id += 1
+
+                # 保存航路图索引文件
+                index_file = self.enroute_path / "index.json"
                 with open(index_file, "w", encoding="utf-8") as f:
                     json.dump(index_entries, f, ensure_ascii=False, indent=4)
 
-                logger.info(f"索引生成完成: {airport.name}, 图表数量: {len(index_entries)}")
+                logger.info(f"航路图索引生成完成，图表数量: {len(index_entries)}")
+            else:
+                logger.warning(f"ENROUTE 目录不存在: {self.enroute_path}")
 
         except Exception as e:
             logger.error(f"生成索引失败: {e}", exc_info=True)

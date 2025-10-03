@@ -177,13 +177,14 @@ class DataManager(QObject):
             processor.process(["index"])
             logger.info("索引生成完成")
 
-            # 6. 加载机场数据 (100%)
-            logger.debug("加载机场数据...")
+            # 6. 加载机场数据和航路图 (100%)
+            logger.debug("加载机场数据和航路图...")
             self.dataImportProgress.emit(100, "导入完成")
             airports_data = self.loadSavedAirports()
+            enroute_count = self._getEnrouteChartCount()
 
-            logger.info(f"数据导入成功: {len(airports_data)} 个机场")
-            self.dataImportCompleted.emit(True, f"✅ 成功导入 {len(airports_data)} 个机场数据\n\nAIRAC 周期: {self._airac_period}")
+            logger.info(f"数据导入成功: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
+            self.dataImportCompleted.emit(True, f"✅ 成功导入 {len(airports_data)} 个机场 + {enroute_count} 个航路图\n\nAIRAC 周期: {self._airac_period}")
             self.airportsLoaded.emit(airports_data)
 
         except Exception as e:
@@ -261,6 +262,36 @@ class DataManager(QObject):
 
         return result
 
+    def _getEnrouteChartCount(self) -> int:
+        """
+        获取航路图数量
+
+        Returns:
+            航路图数量
+        """
+        try:
+            enroute_path = self._data_path / self._airac_period / "Data" / self._dir_name / "ENROUTE"
+            logger.debug(f"获取航路图数量: {enroute_path}")
+
+            if not enroute_path.exists():
+                logger.warning(f"ENROUTE 目录不存在: {enroute_path}")
+                return 0
+
+            index_file = enroute_path / "index.json"
+            if not index_file.exists():
+                logger.warning(f"ENROUTE 索引文件不存在: {index_file}")
+                return 0
+
+            with open(index_file, "r", encoding="utf-8") as f:
+                charts = json.load(f)
+                count = len(charts)
+                logger.debug(f"航路图数量: {count}")
+                return count
+
+        except Exception as e:
+            logger.error(f"获取航路图数量失败: {e}", exc_info=True)
+            return 0
+
     def _parseAirportsData(self, data_path: Path) -> List[Dict[str, Any]]:
         """
         解析机场数据（从 EAIP Terminal 目录）
@@ -322,7 +353,21 @@ class DataManager(QObject):
                 'chart_count': chart_count
             })
 
-        logger.info(f"解析机场数据完成，共 {len(airports)} 个机场")
+        # 获取航路图数量
+        enroute_count = 0
+        enroute_path = data_path / "Data" / self._dir_name / "ENROUTE"
+        if enroute_path.exists():
+            enroute_index = enroute_path / "index.json"
+            if enroute_index.exists():
+                try:
+                    with open(enroute_index, "r", encoding="utf-8") as f:
+                        enroute_charts = json.load(f)
+                        enroute_count = len(enroute_charts)
+                    logger.debug(f"航路图数量: {enroute_count}")
+                except Exception as e:
+                    logger.error(f"读取航路图索引失败: {e}")
+
+        logger.info(f"解析机场数据完成，共 {len(airports)} 个机场 + {enroute_count} 个航路图")
         return airports
 
     def _saveAirportsData(self, airports_data: List[Dict[str, Any]]):
@@ -361,7 +406,8 @@ class DataManager(QObject):
             logger.info(f"从 Terminal 目录加载机场数据: {terminal_path}")
             airports = self._parseAirportsData(self._data_path / self._airac_period)
             if airports:
-                logger.info(f"加载成功: {len(airports)} 个机场")
+                enroute_count = self._getEnrouteChartCount()
+                logger.info(f"加载成功: {len(airports)} 个机场 + {enroute_count} 个航路图")
                 self.airportsLoaded.emit(airports)
                 return airports
             else:
@@ -384,7 +430,8 @@ class DataManager(QObject):
                 self._airac_period = data.get('airac_period', self._airac_period)
                 self._dir_name = data.get('dir_name', self._dir_name)
                 airports = data.get('airports', [])
-                logger.info(f"从 JSON 加载成功: {len(airports)} 个机场")
+                enroute_count = self._getEnrouteChartCount()
+                logger.info(f"从 JSON 加载成功: {len(airports)} 个机场 + {enroute_count} 个航路图")
                 self.airportsLoaded.emit(airports)
                 return airports
         except Exception as e:
