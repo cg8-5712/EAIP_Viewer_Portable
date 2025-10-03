@@ -54,7 +54,7 @@ class ChartProcessor:
 
         Args:
             data_path: 数据根目录
-            dir_name: EAIP 目录名称
+            dir_name: EAIP 目录名称（用于处理过程，最终会被移除）
             max_workers: 最大工作线程数
             progress_callback: 进度回调函数 (当前进度, 总数, 描述)
         """
@@ -62,6 +62,8 @@ class ChartProcessor:
         self.dir_name = dir_name
         self.max_workers = max(1, max_workers)  # 至少1个线程
         self.progress_callback = progress_callback
+
+        # 处理时的临时路径（在 Data/EAIP 下）
         self.terminal_path = data_path / "Data" / dir_name / "Terminal"
         self.enroute_path = data_path / "Data" / dir_name / "ENROUTE"
         self.ad_json_path = data_path / "Data" / "JsonPath" / "AD.JSON"

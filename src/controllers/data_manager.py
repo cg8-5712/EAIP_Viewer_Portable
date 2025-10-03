@@ -181,13 +181,19 @@ class ImportWorker(QThread):
             self.progressUpdate.emit(5, total_steps, 100, "生成索引", "所有索引生成完成")
             logger.info("索引生成完成")
 
-            # 6. 加载机场数据和航路图
+            # 6. 清理不需要的文件，只保留 Terminal 和 ENROUTE
+            logger.debug("清理不需要的文件...")
+            self.progressUpdate.emit(6, total_steps, 0, "整理数据", "清理临时文件...")
+            self._cleanup_import_files(final_path)
+
+            # 7. 加载机场数据和航路图（从清理后的新位置）
             logger.debug("加载机场数据和航路图...")
-            self.progressUpdate.emit(6, total_steps, 0, "加载数据", "开始加载机场列表")
+            self.progressUpdate.emit(6, total_steps, 50, "整理数据", "开始加载机场列表")
             airports_data = self._parseAirportsData(final_path)
-            self.progressUpdate.emit(6, total_steps, 60, "加载数据", "加载航路图信息")
+            self.progressUpdate.emit(6, total_steps, 80, "整理数据", "加载航路图信息")
             enroute_count = self._getEnrouteChartCount(final_path)
-            self.progressUpdate.emit(6, total_steps, 100, "加载数据", f"加载完成: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
+
+            self.progressUpdate.emit(6, total_steps, 100, "整理数据", f"加载完成: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
 
             logger.info(f"数据导入成功: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
             success_msg = f"✅ 成功导入 {len(airports_data)} 个机场 + {enroute_count} 个航路图\n\nAIRAC 周期: {self.airac_period}"
@@ -198,6 +204,64 @@ class ImportWorker(QThread):
             self._cleanup_temp(temp_extract_path)
             error_msg = f"❌ 导入失败: {str(e)}\n\n已自动清理临时文件"
             self.importFinished.emit(False, error_msg, [], 0)
+
+    def _cleanup_import_files(self, base_path: Path):
+        """
+        清理导入后不需要的文件，只保留 Terminal 和 ENROUTE 文件夹
+
+        Args:
+            base_path: AIRAC 周期目录
+        """
+        try:
+            import shutil
+
+            logger.info(f"开始清理不需要的文件: {base_path}")
+
+            # 定位 Terminal 和 ENROUTE 文件夹
+            terminal_src = base_path / "Data" / self.dir_name / "Terminal"
+            enroute_src = base_path / "Data" / self.dir_name / "ENROUTE"
+
+            terminal_dest = base_path / "Terminal"
+            enroute_dest = base_path / "ENROUTE"
+
+            # 移动 Terminal 文件夹
+            if terminal_src.exists():
+                if terminal_dest.exists():
+                    shutil.rmtree(terminal_dest)
+                shutil.move(str(terminal_src), str(terminal_dest))
+                logger.info(f"移动 Terminal 文件夹: {terminal_dest}")
+            else:
+                logger.warning(f"Terminal 文件夹不存在: {terminal_src}")
+
+            # 移动 ENROUTE 文件夹
+            if enroute_src.exists():
+                if enroute_dest.exists():
+                    shutil.rmtree(enroute_dest)
+                shutil.move(str(enroute_src), str(enroute_dest))
+                logger.info(f"移动 ENROUTE 文件夹: {enroute_dest}")
+            else:
+                logger.warning(f"ENROUTE 文件夹不存在: {enroute_src}")
+
+            # 删除 Data 文件夹及其所有内容
+            data_folder = base_path / "Data"
+            if data_folder.exists():
+                shutil.rmtree(data_folder)
+                logger.info(f"删除 Data 文件夹: {data_folder}")
+
+            # 删除其他所有文件和文件夹（除了 Terminal 和 ENROUTE）
+            for item in base_path.iterdir():
+                if item.name not in ["Terminal", "ENROUTE"]:
+                    if item.is_dir():
+                        shutil.rmtree(item)
+                        logger.debug(f"删除文件夹: {item}")
+                    else:
+                        item.unlink()
+                        logger.debug(f"删除文件: {item}")
+
+            logger.info("清理完成，只保留 Terminal 和 ENROUTE 文件夹")
+
+        except Exception as e:
+            logger.error(f"清理文件失败: {e}", exc_info=True)
 
     def _extract_airac_period(self, folder_name: str) -> Optional[str]:
         """从文件夹名提取 AIRAC 周期"""
@@ -235,7 +299,7 @@ class ImportWorker(QThread):
         logger.debug(f"开始解析机场数据: {data_path}")
         airports = []
 
-        terminal_path = data_path / "Data" / self.dir_name / "Terminal"
+        terminal_path = data_path / "Terminal"  # 更新后的路径
         logger.debug(f"Terminal 路径: {terminal_path}")
 
         if not terminal_path.exists():
@@ -280,7 +344,7 @@ class ImportWorker(QThread):
             })
 
         enroute_count = 0
-        enroute_path = data_path / "Data" / self.dir_name / "ENROUTE"
+        enroute_path = data_path / "ENROUTE"  # 更新后的路径
         if enroute_path.exists():
             enroute_index = enroute_path / "index.json"
             if enroute_index.exists():
@@ -298,7 +362,7 @@ class ImportWorker(QThread):
     def _getEnrouteChartCount(self, data_path: Path) -> int:
         """获取航路图数量"""
         try:
-            enroute_path = data_path / "Data" / self.dir_name / "ENROUTE"
+            enroute_path = data_path / "ENROUTE"  # 更新后的路径
             logger.debug(f"获取航路图数量: {enroute_path}")
 
             if not enroute_path.exists():
