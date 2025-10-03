@@ -5,8 +5,10 @@ Data Manager - 处理数据导入、解析和保存
 from PySide6.QtCore import QObject, Signal, Slot, Property
 from pathlib import Path
 import json
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from utils.zip_extractor import ZipExtractor
+from utils.chart_processor import ChartProcessor
+from utils.eaip_handler import EaipHandler
 
 
 class DataManager(QObject):
@@ -17,16 +19,34 @@ class DataManager(QObject):
     dataImportProgress = Signal(int, str)  # 进度百分比, 状态信息
     dataImportCompleted = Signal(bool, str)  # 成功/失败, 消息
     airportsLoaded = Signal(list)  # 机场数据加载完成
+    periodUpdated = Signal(dict)  # AIRAC 周期更新完成
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._data_path = Path("./data")
         self._extractor = ZipExtractor()
+        self._eaip_handler: Optional[EaipHandler] = None
+        self._airac_period = "2505"  # 默认周期
+        self._dir_name = "EAIP"  # 默认目录名
+
+        # 初始化 EAIP 处理器
+        self._initialize_eaip_handler()
+
+    def _initialize_eaip_handler(self):
+        """初始化 EAIP 处理器"""
+        try:
+            self._eaip_handler = EaipHandler(
+                self._data_path,
+                self._airac_period,
+                self._dir_name
+            )
+        except Exception as e:
+            print(f"[WARNING] EAIP 处理器初始化失败: {e}")
 
     @Slot(str)
     def importDataFromZip(self, zip_path: str):
         """
-        从压缩包导入数据
+        从压缩包导入 EAIP 数据
 
         Args:
             zip_path: 压缩包文件路径
@@ -36,33 +56,64 @@ class DataManager(QObject):
         try:
             # 1. 解压文件 (20%)
             self.dataImportProgress.emit(20, "正在解压文件...")
-            extract_path = self._data_path / "extracted"
+            extract_path = self._data_path / self._airac_period
             self._extractor.extract(zip_path, str(extract_path))
 
-            # 2. 用户提供的数据处理 (40%)
-            self.dataImportProgress.emit(40, "正在处理数据...")
-            # TODO: 这里调用用户提供的数据处理函数
-            # processed_data = user_provided_processor(extract_path)
+            # 2. 处理 EAIP 数据 (40%)
+            self.dataImportProgress.emit(40, "正在处理航图数据...")
 
-            # 3. 解析数据结构 (60%)
-            self.dataImportProgress.emit(60, "正在解析数据结构...")
-            airports_data = self._parseAirportsData(extract_path)
+            # 自动检测 EAIP 目录
+            if self._eaip_handler:
+                detected_dir = self._eaip_handler.auto_detect_dir_name()
+                if detected_dir:
+                    self._dir_name = detected_dir
+                    self._eaip_handler.dir_name = detected_dir
+                    self._eaip_handler.terminal_path = extract_path / "Data" / detected_dir / "Terminal"
 
-            # 4. 保存到本地 (80%)
-            self.dataImportProgress.emit(80, "正在保存数据...")
-            self._saveAirportsData(airports_data)
+            # 3. 使用 ChartProcessor 处理数据 (60%)
+            self.dataImportProgress.emit(60, "正在重命名和分类航图...")
+            processor = ChartProcessor(extract_path, self._dir_name)
+            processor.process(["rename", "organize"])
 
-            # 5. 完成 (100%)
+            # 4. 生成索引 (80%)
+            self.dataImportProgress.emit(80, "正在生成索引...")
+            processor.process(["index"])
+
+            # 5. 加载机场数据 (100%)
             self.dataImportProgress.emit(100, "导入完成")
+            airports_data = self.loadSavedAirports()
+
             self.dataImportCompleted.emit(True, f"成功导入 {len(airports_data)} 个机场数据")
             self.airportsLoaded.emit(airports_data)
 
         except Exception as e:
             self.dataImportCompleted.emit(False, f"导入失败: {str(e)}")
 
+    @Slot(str, result=dict)
+    def updateAiracPeriod(self, period: str) -> Dict[str, Any]:
+        """
+        更新 AIRAC 周期
+
+        Args:
+            period: AIRAC 周期（如 "2505"）
+
+        Returns:
+            更新结果
+        """
+        if not self._eaip_handler:
+            return {"success": False, "message": "EAIP 处理器未初始化"}
+
+        result = self._eaip_handler.update_period(period)
+        if result.get("success"):
+            self._airac_period = period
+            self._dir_name = result.get("dir_name", "EAIP")
+            self.periodUpdated.emit(result)
+
+        return result
+
     def _parseAirportsData(self, data_path: Path) -> List[Dict[str, Any]]:
         """
-        解析机场数据
+        解析机场数据（从 EAIP Terminal 目录）
 
         Args:
             data_path: 数据目录路径
@@ -72,28 +123,40 @@ class DataManager(QObject):
         """
         airports = []
 
-        # 读取 metadata.json（如果存在）
-        metadata_file = data_path / "metadata.json"
-        if metadata_file.exists():
-            with open(metadata_file, 'r', encoding='utf-8') as f:
-                metadata = json.load(f)
-                return metadata.get('airports', [])
+        # 扫描 Terminal 目录
+        terminal_path = data_path / "Data" / self._dir_name / "Terminal"
+        if not terminal_path.exists():
+            print(f"[WARNING] Terminal 目录不存在: {terminal_path}")
+            return airports
 
-        # 否则扫描 airports 目录
-        airports_dir = data_path / "airports"
-        if airports_dir.exists():
-            for airport_dir in airports_dir.iterdir():
-                if airport_dir.is_dir():
-                    airport_code = airport_dir.name
-                    # 扫描航图分类
-                    categories = [d.name for d in airport_dir.iterdir() if d.is_dir()]
+        for airport_dir in terminal_path.iterdir():
+            if not airport_dir.is_dir():
+                continue
 
-                    airports.append({
-                        'code': airport_code,
-                        'name_zh': f'{airport_code} 机场',  # 默认值
-                        'name_en': f'{airport_code} Airport',
-                        'categories': categories
-                    })
+            icao = airport_dir.name
+            index_file = airport_dir / "index.json"
+
+            # 读取索引获取航图分类
+            categories = []
+            chart_count = 0
+
+            if index_file.exists():
+                try:
+                    with open(index_file, "r", encoding="utf-8") as f:
+                        charts = json.load(f)
+                        chart_count = len(charts)
+                        # 提取所有分类
+                        categories = list(set(chart.get("sort", "general") for chart in charts))
+                except Exception as e:
+                    print(f"[ERROR] 读取索引失败 {icao}: {e}")
+
+            airports.append({
+                'code': icao,
+                'name_zh': f'{icao} 机场',
+                'name_en': f'{icao} Airport',
+                'categories': categories,
+                'chart_count': chart_count
+            })
 
         return airports
 
@@ -110,6 +173,8 @@ class DataManager(QObject):
         with open(save_path, 'w', encoding='utf-8') as f:
             json.dump({
                 'version': '1.0',
+                'airac_period': self._airac_period,
+                'dir_name': self._dir_name,
                 'airports': airports_data
             }, f, ensure_ascii=False, indent=2)
 
@@ -121,6 +186,15 @@ class DataManager(QObject):
         Returns:
             机场数据列表
         """
+        # 优先从 Terminal 目录加载最新数据
+        terminal_path = self._data_path / self._airac_period / "Data" / self._dir_name / "Terminal"
+        if terminal_path.exists():
+            airports = self._parseAirportsData(self._data_path / self._airac_period)
+            if airports:
+                self.airportsLoaded.emit(airports)
+                return airports
+
+        # 否则从保存的 JSON 加载
         save_path = self._data_path / "airports.json"
         if not save_path.exists():
             return []
@@ -128,6 +202,9 @@ class DataManager(QObject):
         try:
             with open(save_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+                # 更新周期信息
+                self._airac_period = data.get('airac_period', self._airac_period)
+                self._dir_name = data.get('dir_name', self._dir_name)
                 airports = data.get('airports', [])
                 self.airportsLoaded.emit(airports)
                 return airports
@@ -138,7 +215,7 @@ class DataManager(QObject):
     @Slot(str, str, result=list)
     def loadChartsForAirport(self, airport_code: str, category: str = "") -> List[Dict[str, Any]]:
         """
-        加载指定机场的航图数据
+        加载指定机场的航图数据（使用 EAIP Handler）
 
         Args:
             airport_code: 机场代码
@@ -147,47 +224,42 @@ class DataManager(QObject):
         Returns:
             航图数据列表
         """
-        charts = []
-        airport_path = self._data_path / "extracted" / "airports" / airport_code
-
-        if not airport_path.exists():
+        if not self._eaip_handler:
             return []
 
-        # 如果指定了分类，只加载该分类
-        if category:
-            category_path = airport_path / category
-            if category_path.exists():
-                charts.extend(self._scanChartsInCategory(category_path, airport_code, category))
-        else:
-            # 加载所有分类
-            for category_dir in airport_path.iterdir():
-                if category_dir.is_dir():
-                    charts.extend(self._scanChartsInCategory(category_dir, airport_code, category_dir.name))
+        charts = self._eaip_handler.get_chart_list(
+            icao=airport_code,
+            search_type=category if category else None
+        )
 
-        return charts
+        return charts if charts else []
 
-    def _scanChartsInCategory(self, category_path: Path, airport_code: str, category: str) -> List[Dict[str, Any]]:
+    @Slot(str, str, result=str)
+    def getChartByCode(self, airport_code: str, chart_code: str) -> str:
         """
-        扫描分类目录中的航图文件
+        通过代码获取航图路径
 
         Args:
-            category_path: 分类目录路径
             airport_code: 机场代码
-            category: 分类名称
+            chart_code: 航图代码
 
         Returns:
-            航图数据列表
+            航图文件路径
         """
-        charts = []
-        for chart_file in category_path.glob("*.pdf"):
-            chart_id = f"{airport_code}_{category}_{chart_file.stem}"
-            charts.append({
-                'chart_id': chart_id,
-                'name': chart_file.stem,
-                'category': category,
-                'file_path': str(chart_file),
-                'airport_code': airport_code,
-                'thumbnail': ''  # TODO: 生成缩略图
-            })
+        if not self._eaip_handler:
+            return ""
 
-        return charts
+        try:
+            # 获取航图数据
+            result = self._eaip_handler.get_chart_by_code(airport_code, chart_code)
+            if isinstance(result, bytes):
+                # 如果是图片数据，需要保存到临时文件
+                temp_path = self._data_path / "cache" / f"{airport_code}_{chart_code}.png"
+                temp_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(temp_path, 'wb') as f:
+                    f.write(result)
+                return str(temp_path)
+            else:
+                return result  # 错误信息
+        except Exception as e:
+            return f"获取航图失败: {e}"

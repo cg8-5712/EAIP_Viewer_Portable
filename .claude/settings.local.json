@@ -5,7 +5,8 @@
       "Bash(timeout:*)",
       "Bash(cat:*)",
       "Bash(tasklist:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(exit 0)"
     ],
     "deny": [],
     "ask": []
