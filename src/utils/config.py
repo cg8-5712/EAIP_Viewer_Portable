@@ -2,9 +2,10 @@
 Configuration Manager - 配置管理
 """
 
-from PySide6.QtCore import QObject, Signal, Property
+from PySide6.QtCore import QObject, Signal, Property, Slot
 from pathlib import Path
 import json
+import os
 from typing import Any, Dict
 
 
@@ -27,6 +28,10 @@ class Config(QObject):
         "splash_screen": {
             "enabled": True,
             "min_display_time": 1500
+        },
+        "import": {
+            "max_workers": "auto",  # "auto" 或具体数字
+            "auto_workers_ratio": 0.5  # 自动模式下使用 CPU 线程数的比例（默认50%）
         }
     }
 
@@ -177,3 +182,59 @@ class Config(QObject):
     def splashScreenEnabled(self, value: bool):
         self.set('splash_screen.enabled', value)
         self.save()
+
+    @Slot(result=int)
+    def getImportWorkers(self) -> int:
+        """
+        获取导入操作的工作线程数
+
+        Returns:
+            工作线程数
+        """
+        cpu_count = os.cpu_count() or 4  # 默认 4 核
+        max_allowed = int(cpu_count * 0.7)  # 最多70%
+
+        max_workers = self.get('import.max_workers', 'auto')
+
+        if max_workers == 'auto':
+            # 自动模式：使用配置的比例
+            ratio = self.get('import.auto_workers_ratio', 0.5)
+            workers = max(1, int(cpu_count * ratio))
+        else:
+            # 手动设置
+            workers = int(max_workers)
+
+        # 确保不超过最大限制
+        workers = min(workers, max_allowed)
+        workers = max(1, workers)  # 至少1个线程
+
+        return workers
+
+    @Slot(int)
+    def setImportWorkers(self, workers: int):
+        """
+        设置导入操作的工作线程数
+
+        Args:
+            workers: 工作线程数，0 表示自动
+        """
+        if workers == 0:
+            self.set('import.max_workers', 'auto')
+        else:
+            cpu_count = os.cpu_count() or 4
+            max_allowed = int(cpu_count * 0.7)
+            workers = min(workers, max_allowed)
+            workers = max(1, workers)
+            self.set('import.max_workers', workers)
+        self.save()
+
+    @Slot(result=int)
+    def getMaxImportWorkers(self) -> int:
+        """获取最大允许的导入线程数（CPU线程数的70%）"""
+        cpu_count = os.cpu_count() or 4
+        return int(cpu_count * 0.7)
+
+    @Slot(result=int)
+    def getCpuCount(self) -> int:
+        """获取CPU线程数"""
+        return os.cpu_count() or 4

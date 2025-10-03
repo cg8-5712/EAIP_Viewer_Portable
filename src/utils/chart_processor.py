@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.logger import Logger
 
 logger = Logger.get_logger("ChartProcessor")
@@ -46,22 +47,24 @@ class ChartProcessor:
 
     SPECIAL_CHART_TYPES = ["WAYPOINT LIST", "GMC", "APDC", "DATABASE CODING TABLE"]
 
-    def __init__(self, data_path: Path, dir_name: str = "EAIP") -> None:
+    def __init__(self, data_path: Path, dir_name: str = "EAIP", max_workers: int = 4) -> None:
         """
         初始化航图处理器
 
         Args:
             data_path: 数据根目录
             dir_name: EAIP 目录名称
+            max_workers: 最大工作线程数
         """
         self.data_path = data_path
         self.dir_name = dir_name
+        self.max_workers = max(1, max_workers)  # 至少1个线程
         self.terminal_path = data_path / "Data" / dir_name / "Terminal"
         self.enroute_path = data_path / "Data" / dir_name / "ENROUTE"
         self.ad_json_path = data_path / "Data" / "JsonPath" / "AD.JSON"
         self.enr_json_path = data_path / "Data" / "JsonPath" / "ENR.JSON"
 
-        logger.debug(f"初始化 ChartProcessor: data_path={data_path}, dir_name={dir_name}")
+        logger.debug(f"初始化 ChartProcessor: data_path={data_path}, dir_name={dir_name}, max_workers={self.max_workers}")
         logger.debug(f"Terminal 路径: {self.terminal_path}")
         logger.debug(f"ENROUTE 路径: {self.enroute_path}")
         logger.debug(f"AD.JSON 路径: {self.ad_json_path}")
@@ -283,70 +286,97 @@ class ChartProcessor:
         except Exception as e:
             logger.error(f"整理文件失败: {e}", exc_info=True)
 
+    def _generate_airport_index(self, airport_path: Path) -> tuple:
+        """
+        为单个机场生成索引（用于多线程）
+
+        Args:
+            airport_path: 机场目录路径
+
+        Returns:
+            (机场名称, 图表数量)
+        """
+        airport_name = airport_path.name
+        logger.debug(f"处理机场 {airport_name}")
+
+        try:
+            self.merge_special_charts(airport_path)
+
+            index_entries: List[Dict[str, str]] = []
+            chart_id = 1
+
+            # 处理根目录下的PDF文件
+            root_pdfs = list(airport_path.glob("*.pdf"))
+            logger.debug(f"  根目录 PDF: {len(root_pdfs)} 个")
+
+            for pdf_file in root_pdfs:
+                path = pdf_file.name.replace("\\", "/")
+                index_entries.append({
+                    "id": str(chart_id),
+                    "code": "general",
+                    "name": pdf_file.name,
+                    "path": path,
+                    "sort": "general"
+                })
+                chart_id += 1
+
+            # 处理子文件夹中的PDF文件
+            folders = [f for f in airport_path.iterdir() if f.is_dir()]
+            logger.debug(f"  子文件夹: {len(folders)} 个")
+
+            for folder in folders:
+                folder_pdfs = list(folder.glob("*.pdf"))
+                logger.debug(f"    {folder.name}: {len(folder_pdfs)} 个 PDF")
+
+                for pdf_file in folder_pdfs:
+                    path = f"{folder.name}/{pdf_file.name}".replace("\\", "/")
+                    # 提取 code（去掉机场代码前缀）
+                    code = pdf_file.name.split(folder.name)[0]
+                    if f"{airport_name}-" in code:
+                        code = code.split(f"{airport_name}-")[-1]
+
+                    index_entries.append({
+                        "id": str(chart_id),
+                        "code": code.strip(),
+                        "name": pdf_file.name,
+                        "path": path,
+                        "sort": folder.name
+                    })
+                    chart_id += 1
+
+            # 保存索引文件
+            index_file = airport_path / "index.json"
+            with open(index_file, "w", encoding="utf-8") as f:
+                json.dump(index_entries, f, ensure_ascii=False, indent=4)
+
+            return (airport_name, len(index_entries))
+
+        except Exception as e:
+            logger.error(f"生成机场索引失败 {airport_name}: {e}", exc_info=True)
+            return (airport_name, 0)
+
     def generate_index(self) -> None:
         """生成航图索引 (index.json)"""
         logger.debug("开始生成航图索引")
 
         try:
-            # 生成机场索引
+            # 生成机场索引（使用多线程）
             if self.terminal_path.exists():
                 airports = [d for d in self.terminal_path.iterdir() if d.is_dir()]
                 logger.info(f"找到 {len(airports)} 个机场目录")
 
-                for airport in airports:
-                    airport_path = self.terminal_path / airport.name
-                    logger.debug(f"处理机场 {airport.name}")
+                # 使用线程池并行处理机场索引
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    logger.info(f"使用 {self.max_workers} 个线程并行生成机场索引")
+                    futures = [executor.submit(self._generate_airport_index, airport) for airport in airports]
 
-                    self.merge_special_charts(airport_path)
+                    total_charts = 0
+                    for future in as_completed(futures):
+                        airport_name, chart_count = future.result()
+                        total_charts += chart_count
+                        logger.info(f"机场索引生成完成: {airport_name}, 图表数量: {chart_count}")
 
-                    index_entries: List[Dict[str, str]] = []
-                    chart_id = 1
-
-                    # 处理根目录下的PDF文件
-                    root_pdfs = list(airport_path.glob("*.pdf"))
-                    logger.debug(f"  根目录 PDF: {len(root_pdfs)} 个")
-
-                    for pdf_file in root_pdfs:
-                        path = pdf_file.name.replace("\\", "/")
-                        index_entries.append({
-                            "id": str(chart_id),
-                            "code": "general",
-                            "name": pdf_file.name,
-                            "path": path,
-                            "sort": "general"
-                        })
-                        chart_id += 1
-
-                    # 处理子文件夹中的PDF文件
-                    folders = [f for f in airport_path.iterdir() if f.is_dir()]
-                    logger.debug(f"  子文件夹: {len(folders)} 个")
-
-                    for folder in folders:
-                        folder_pdfs = list(folder.glob("*.pdf"))
-                        logger.debug(f"    {folder.name}: {len(folder_pdfs)} 个 PDF")
-
-                        for pdf_file in folder_pdfs:
-                            path = f"{folder.name}/{pdf_file.name}".replace("\\", "/")
-                            # 提取 code（去掉机场代码前缀）
-                            code = pdf_file.name.split(folder.name)[0]
-                            if f"{airport.name}-" in code:
-                                code = code.split(f"{airport.name}-")[-1]
-
-                            index_entries.append({
-                                "id": str(chart_id),
-                                "code": code.strip(),
-                                "name": pdf_file.name,
-                                "path": path,
-                                "sort": folder.name
-                            })
-                            chart_id += 1
-
-                    # 保存索引文件
-                    index_file = airport_path / "index.json"
-                    with open(index_file, "w", encoding="utf-8") as f:
-                        json.dump(index_entries, f, ensure_ascii=False, indent=4)
-
-                    logger.info(f"机场索引生成完成: {airport.name}, 图表数量: {len(index_entries)}")
+                logger.info(f"所有机场索引生成完成，总图表数: {total_charts}")
             else:
                 logger.warning(f"Terminal 目录不存在: {self.terminal_path}")
 
