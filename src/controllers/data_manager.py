@@ -40,10 +40,16 @@ class ImportWorker(QThread):
         try:
             # 1. 解压文件
             logger.debug("解压文件中...")
-            self.progressUpdate.emit(1, total_steps, 10, "正在解压文件", f"解压压缩包: {Path(self.zip_path).name}")
+            self.progressUpdate.emit(1, total_steps, 0, "解压", f"开始解压: {Path(self.zip_path).name}")
+
+            def extract_progress(current, total):
+                """解压进度回调"""
+                percent = int((current / total) * 100) if total > 0 else 0
+                self.progressUpdate.emit(1, total_steps, percent, "解压", f"解压中: {current}/{total} 个文件")
 
             try:
-                self.extractor.extract(self.zip_path, str(temp_extract_path))
+                self.extractor.extract(self.zip_path, str(temp_extract_path), progress_callback=extract_progress)
+                self.progressUpdate.emit(1, total_steps, 100, "解压", "解压完成")
                 logger.info(f"文件解压完成: {temp_extract_path}")
             except FileNotFoundError as e:
                 error_msg = "找不到指定的 ZIP 文件，请检查文件路径"
@@ -68,7 +74,7 @@ class ImportWorker(QThread):
 
             # 2. 检测解压后的根文件夹和 AIRAC 周期
             logger.debug("检测解压后的文件结构...")
-            self.progressUpdate.emit(2, total_steps, 30, "正在检测数据结构", "分析解压后的文件结构")
+            self.progressUpdate.emit(2, total_steps, 0, "检测数据结构", "开始分析文件结构")
 
             extracted_items = list(temp_extract_path.iterdir())
             logger.debug(f"解压后的顶层项目: {[item.name for item in extracted_items]}")
@@ -79,6 +85,8 @@ class ImportWorker(QThread):
                 self._cleanup_temp(temp_extract_path)
                 self.importFinished.emit(False, error_msg, [], 0)
                 return
+
+            self.progressUpdate.emit(2, total_steps, 30, "检测数据结构", "查找数据文件夹")
 
             root_folder = None
             for item in extracted_items:
@@ -94,16 +102,17 @@ class ImportWorker(QThread):
                 return
 
             logger.info(f"检测到根文件夹: {root_folder.name}")
+            self.progressUpdate.emit(2, total_steps, 50, "检测数据结构", f"找到根文件夹: {root_folder.name}")
 
             # 提取 AIRAC 周期
             detected_period = self._extract_airac_period(root_folder.name)
             if detected_period:
                 logger.info(f"从文件夹名检测到 AIRAC 周期: {detected_period}")
                 self.airac_period = detected_period
-                self.progressUpdate.emit(2, total_steps, 35, "正在检测数据结构", f"检测到 AIRAC 周期: {detected_period}")
+                self.progressUpdate.emit(2, total_steps, 70, "检测数据结构", f"检测到 AIRAC 周期: {detected_period}")
             else:
                 logger.warning(f"无法从文件夹名 {root_folder.name} 提取 AIRAC 周期，使用默认值")
-                self.progressUpdate.emit(2, total_steps, 35, "正在检测数据结构", f"使用默认 AIRAC 周期: {self.airac_period}")
+                self.progressUpdate.emit(2, total_steps, 70, "检测数据结构", f"使用默认 AIRAC 周期: {self.airac_period}")
 
             # 移动到最终位置
             final_path = self.data_path / self.airac_period
@@ -114,48 +123,71 @@ class ImportWorker(QThread):
                 import shutil
                 shutil.rmtree(final_path)
 
-            self.progressUpdate.emit(2, total_steps, 38, "正在检测数据结构", f"移动数据到: {final_path.name}")
+            self.progressUpdate.emit(2, total_steps, 85, "检测数据结构", f"移动数据到: {final_path.name}")
             root_folder.rename(final_path)
             logger.info(f"数据已移动到: {final_path}")
 
             self._cleanup_temp(temp_extract_path)
+            self.progressUpdate.emit(2, total_steps, 100, "检测数据结构", "数据结构检测完成")
 
             # 3. 处理 EAIP 数据
             logger.debug("处理航图数据...")
-            self.progressUpdate.emit(3, total_steps, 45, "正在处理航图数据", "检测 EAIP 目录结构")
+            self.progressUpdate.emit(3, total_steps, 0, "处理航图数据", "初始化 EAIP 处理器")
 
             # 自动检测 EAIP 目录名
             from utils.eaip_handler import EaipHandler
             self.eaip_handler = EaipHandler(self.data_path, self.airac_period, self.dir_name)
             self.eaip_handler.base_path = final_path
+            self.progressUpdate.emit(3, total_steps, 30, "处理航图数据", "检测 EAIP 目录结构")
+
             detected_dir = self.eaip_handler.auto_detect_dir_name()
             if detected_dir:
                 logger.info(f"检测到 EAIP 目录: {detected_dir}")
                 self.dir_name = detected_dir
                 self.eaip_handler.dir_name = detected_dir
                 self.eaip_handler.terminal_path = final_path / "Data" / detected_dir / "Terminal"
-                self.progressUpdate.emit(3, total_steps, 50, "正在处理航图数据", f"检测到 EAIP 目录: {detected_dir}")
+                self.progressUpdate.emit(3, total_steps, 100, "处理航图数据", f"检测到 EAIP 目录: {detected_dir}")
+            else:
+                self.progressUpdate.emit(3, total_steps, 100, "处理航图数据", f"使用默认 EAIP 目录: {self.dir_name}")
 
             # 4. 使用 ChartProcessor 处理数据
             logger.debug("重命名和分类航图...")
-            self.progressUpdate.emit(4, total_steps, 60, "正在重命名航图", "处理机场航图和航路图数据")
-            processor = ChartProcessor(final_path, self.dir_name, max_workers=self.max_workers)
-            processor.process(["rename", "organize"])
+            self.progressUpdate.emit(4, total_steps, 0, "重命名航图", "开始处理航图文件")
+
+            def rename_progress(current, total, desc):
+                """重命名进度回调"""
+                percent = int((current / total) * 100) if total > 0 else 0
+                self.progressUpdate.emit(4, total_steps, percent, "重命名航图", f"{desc} ({current}/{total})")
+
+            processor = ChartProcessor(final_path, self.dir_name, max_workers=self.max_workers,
+                                      progress_callback=rename_progress)
+            processor.process(["rename"])
+            self.progressUpdate.emit(4, total_steps, 50, "重命名航图", "分类整理航图...")
+            processor.process(["organize"])
+            self.progressUpdate.emit(4, total_steps, 100, "重命名航图", "航图重命名和分类完成")
             logger.info("航图重命名和分类完成")
 
             # 5. 生成索引
             logger.debug("生成索引...")
-            self.progressUpdate.emit(5, total_steps, 80, "正在生成索引", f"使用 {self.max_workers} 个线程并行生成索引")
+            self.progressUpdate.emit(5, total_steps, 0, "生成索引", f"使用 {self.max_workers} 个线程并行生成")
+
+            def index_progress(current, total, desc):
+                """索引生成进度回调"""
+                percent = int((current / total) * 100) if total > 0 else 0
+                self.progressUpdate.emit(5, total_steps, percent, "生成索引", f"{desc} ({current}/{total})")
+
+            processor.progress_callback = index_progress
             processor.process(["index"])
+            self.progressUpdate.emit(5, total_steps, 100, "生成索引", "所有索引生成完成")
             logger.info("索引生成完成")
 
             # 6. 加载机场数据和航路图
             logger.debug("加载机场数据和航路图...")
-            self.progressUpdate.emit(6, total_steps, 95, "正在加载数据", "加载机场列表和航路图信息")
+            self.progressUpdate.emit(6, total_steps, 0, "加载数据", "开始加载机场列表")
             airports_data = self._parseAirportsData(final_path)
+            self.progressUpdate.emit(6, total_steps, 60, "加载数据", "加载航路图信息")
             enroute_count = self._getEnrouteChartCount(final_path)
-
-            self.progressUpdate.emit(6, total_steps, 100, "导入完成", f"成功导入 {len(airports_data)} 个机场 + {enroute_count} 个航路图")
+            self.progressUpdate.emit(6, total_steps, 100, "加载数据", f"加载完成: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
 
             logger.info(f"数据导入成功: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
             success_msg = f"✅ 成功导入 {len(airports_data)} 个机场 + {enroute_count} 个航路图\n\nAIRAC 周期: {self.airac_period}"

@@ -5,7 +5,7 @@ Zip Extractor - 压缩包解压工具
 import zipfile
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 from utils.logger import Logger
 
 logger = Logger.get_logger("ZipExtractor")
@@ -17,7 +17,8 @@ class ZipExtractor:
     def __init__(self):
         pass
 
-    def extract(self, zip_path: str, extract_to: str, password: Optional[str] = None) -> bool:
+    def extract(self, zip_path: str, extract_to: str, password: Optional[str] = None,
+                progress_callback: Optional[Callable[[int, int], None]] = None) -> bool:
         """
         解压 ZIP 文件
 
@@ -25,6 +26,7 @@ class ZipExtractor:
             zip_path: ZIP 文件路径
             extract_to: 解压目标目录
             password: 密码（可选）
+            progress_callback: 进度回调函数 (当前文件索引, 总文件数)
 
         Returns:
             是否成功
@@ -54,10 +56,20 @@ class ZipExtractor:
 
                 # 获取文件列表
                 file_list = zip_ref.namelist()
-                logger.info(f"ZIP 文件包含 {len(file_list)} 个文件")
+                total_files = len(file_list)
+                logger.info(f"ZIP 文件包含 {total_files} 个文件")
 
-                # 解压所有文件
-                zip_ref.extractall(extract_path)
+                # 逐个解压文件并报告进度
+                for index, file_name in enumerate(file_list):
+                    zip_ref.extract(file_name, extract_path)
+
+                    # 调用进度回调
+                    if progress_callback and index % max(1, total_files // 100) == 0:
+                        progress_callback(index + 1, total_files)
+
+                # 确保最后报告100%
+                if progress_callback:
+                    progress_callback(total_files, total_files)
 
             logger.info(f"解压成功: {extract_path}")
             return True

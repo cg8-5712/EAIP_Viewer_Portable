@@ -5,7 +5,7 @@ EAIP Chart Processor
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -47,7 +47,8 @@ class ChartProcessor:
 
     SPECIAL_CHART_TYPES = ["WAYPOINT LIST", "GMC", "APDC", "DATABASE CODING TABLE"]
 
-    def __init__(self, data_path: Path, dir_name: str = "EAIP", max_workers: int = 4) -> None:
+    def __init__(self, data_path: Path, dir_name: str = "EAIP", max_workers: int = 4,
+                 progress_callback: Optional[Callable[[int, int, str], None]] = None) -> None:
         """
         初始化航图处理器
 
@@ -55,10 +56,12 @@ class ChartProcessor:
             data_path: 数据根目录
             dir_name: EAIP 目录名称
             max_workers: 最大工作线程数
+            progress_callback: 进度回调函数 (当前进度, 总数, 描述)
         """
         self.data_path = data_path
         self.dir_name = dir_name
         self.max_workers = max(1, max_workers)  # 至少1个线程
+        self.progress_callback = progress_callback
         self.terminal_path = data_path / "Data" / dir_name / "Terminal"
         self.enroute_path = data_path / "Data" / dir_name / "ENROUTE"
         self.ad_json_path = data_path / "Data" / "JsonPath" / "AD.JSON"
@@ -176,7 +179,9 @@ class ChartProcessor:
             logger.info(f"读取机场航图数据: {len(chart_data)} 条记录")
 
             renamed_count = 0
-            for chart in chart_data:
+            total_charts = len([c for c in chart_data if c.get("pdfPath")])
+
+            for idx, chart in enumerate(chart_data):
                 if not chart.get("pdfPath"):
                     continue
 
@@ -200,10 +205,19 @@ class ChartProcessor:
                         old_path.rename(new_path)
                         renamed_count += 1
                         logger.debug(f"重命名机场航图: {old_path.name} -> {icao}/{new_name}")
+
+                        # 报告进度
+                        if self.progress_callback and idx % max(1, total_charts // 20) == 0:
+                            self.progress_callback(idx + 1, total_charts, f"重命名: {icao}")
+
                     except OSError as e:
                         logger.error(f"重命名失败: {old_path}, {e}")
                 else:
                     logger.debug(f"文件不存在: {old_path}")
+
+            # 确保最后报告100%
+            if self.progress_callback:
+                self.progress_callback(total_charts, total_charts, "机场航图重命名完成")
 
             logger.info(f"机场航图重命名完成，共处理 {renamed_count} 个文件")
 
@@ -363,7 +377,8 @@ class ChartProcessor:
             # 生成机场索引（使用多线程）
             if self.terminal_path.exists():
                 airports = [d for d in self.terminal_path.iterdir() if d.is_dir()]
-                logger.info(f"找到 {len(airports)} 个机场目录")
+                total_airports = len(airports)
+                logger.info(f"找到 {total_airports} 个机场目录")
 
                 # 使用线程池并行处理机场索引
                 with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -371,10 +386,16 @@ class ChartProcessor:
                     futures = [executor.submit(self._generate_airport_index, airport) for airport in airports]
 
                     total_charts = 0
+                    completed_count = 0
                     for future in as_completed(futures):
                         airport_name, chart_count = future.result()
                         total_charts += chart_count
+                        completed_count += 1
                         logger.info(f"机场索引生成完成: {airport_name}, 图表数量: {chart_count}")
+
+                        # 报告进度
+                        if self.progress_callback:
+                            self.progress_callback(completed_count, total_airports, f"生成索引: {airport_name}")
 
                 logger.info(f"所有机场索引生成完成，总图表数: {total_charts}")
             else:
