@@ -19,7 +19,7 @@ class DataManager(QObject):
 
     # 信号定义
     dataImportStarted = Signal()
-    dataImportProgress = Signal(int, str)  # 进度百分比, 状态信息
+    dataImportProgress = Signal(int, int, int, str, str)  # 当前步骤, 总步骤数, 进度%, 步骤名称, 任务详情
     dataImportCompleted = Signal(bool, str)  # 成功/失败, 消息
     airportsLoaded = Signal(list)  # 机场数据加载完成
     periodUpdated = Signal(dict)  # AIRAC 周期更新完成
@@ -63,11 +63,12 @@ class DataManager(QObject):
 
         # 解压到临时目录
         temp_extract_path = self._data_path / "temp_extract"
+        total_steps = 6
 
         try:
-            # 1. 解压文件 (20%)
+            # 1. 解压文件
             logger.debug("解压文件中...")
-            self.dataImportProgress.emit(20, "正在解压文件...")
+            self.dataImportProgress.emit(1, total_steps, 10, "正在解压文件", f"解压压缩包: {Path(zip_path).name}")
 
             try:
                 self._extractor.extract(zip_path, str(temp_extract_path))
@@ -94,9 +95,9 @@ class DataManager(QObject):
                 self.dataImportCompleted.emit(False, error_msg)
                 return
 
-            # 2. 检测解压后的根文件夹和 AIRAC 周期 (30%)
+            # 2. 检测解压后的根文件夹和 AIRAC 周期
             logger.debug("检测解压后的文件结构...")
-            self.dataImportProgress.emit(30, "正在检测数据结构...")
+            self.dataImportProgress.emit(2, total_steps, 30, "正在检测数据结构", "分析解压后的文件结构")
 
             # 查找解压后的根文件夹
             extracted_items = list(temp_extract_path.iterdir())
@@ -130,8 +131,10 @@ class DataManager(QObject):
             if detected_period:
                 logger.info(f"从文件夹名检测到 AIRAC 周期: {detected_period}")
                 self._airac_period = detected_period
+                self.dataImportProgress.emit(2, total_steps, 35, "正在检测数据结构", f"检测到 AIRAC 周期: {detected_period}")
             else:
                 logger.warning(f"无法从文件夹名 {root_folder.name} 提取 AIRAC 周期，使用默认值")
+                self.dataImportProgress.emit(2, total_steps, 35, "正在检测数据结构", f"使用默认 AIRAC 周期: {self._airac_period}")
 
             # 最终存储路径
             final_path = self._data_path / self._airac_period
@@ -143,15 +146,16 @@ class DataManager(QObject):
                 import shutil
                 shutil.rmtree(final_path)
 
+            self.dataImportProgress.emit(2, total_steps, 38, "正在检测数据结构", f"移动数据到: {final_path.name}")
             root_folder.rename(final_path)
             logger.info(f"数据已移动到: {final_path}")
 
             # 清理临时目录
             self._cleanup_temp(temp_extract_path)
 
-            # 3. 处理 EAIP 数据 (40%)
+            # 3. 处理 EAIP 数据
             logger.debug("处理航图数据...")
-            self.dataImportProgress.emit(40, "正在处理航图数据...")
+            self.dataImportProgress.emit(3, total_steps, 45, "正在处理航图数据", "检测 EAIP 目录结构")
 
             # 自动检测 EAIP 目录名
             if self._eaip_handler:
@@ -163,25 +167,28 @@ class DataManager(QObject):
                     self._dir_name = detected_dir
                     self._eaip_handler.dir_name = detected_dir
                     self._eaip_handler.terminal_path = final_path / "Data" / detected_dir / "Terminal"
+                    self.dataImportProgress.emit(3, total_steps, 50, "正在处理航图数据", f"检测到 EAIP 目录: {detected_dir}")
 
-            # 4. 使用 ChartProcessor 处理数据 (60%)
+            # 4. 使用 ChartProcessor 处理数据
             logger.debug("重命名和分类航图...")
-            self.dataImportProgress.emit(60, "正在重命名和分类航图...")
+            self.dataImportProgress.emit(4, total_steps, 60, "正在重命名航图", "处理机场航图和航路图数据")
             processor = ChartProcessor(final_path, self._dir_name)
             processor.process(["rename", "organize"])
             logger.info("航图重命名和分类完成")
 
-            # 5. 生成索引 (80%)
+            # 5. 生成索引
             logger.debug("生成索引...")
-            self.dataImportProgress.emit(80, "正在生成索引...")
+            self.dataImportProgress.emit(5, total_steps, 80, "正在生成索引", "为所有航图生成索引文件")
             processor.process(["index"])
             logger.info("索引生成完成")
 
-            # 6. 加载机场数据和航路图 (100%)
+            # 6. 加载机场数据和航路图
             logger.debug("加载机场数据和航路图...")
-            self.dataImportProgress.emit(100, "导入完成")
+            self.dataImportProgress.emit(6, total_steps, 95, "正在加载数据", "加载机场列表和航路图信息")
             airports_data = self.loadSavedAirports()
             enroute_count = self._getEnrouteChartCount()
+
+            self.dataImportProgress.emit(6, total_steps, 100, "导入完成", f"成功导入 {len(airports_data)} 个机场 + {enroute_count} 个航路图")
 
             logger.info(f"数据导入成功: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
             self.dataImportCompleted.emit(True, f"✅ 成功导入 {len(airports_data)} 个机场 + {enroute_count} 个航路图\n\nAIRAC 周期: {self._airac_period}")

@@ -5,6 +5,7 @@ import QtQuick.Layouts 1.15
 import QtQuick.Dialogs
 import Qt5Compat.GraphicalEffects
 import "styles"
+import "components"
 
 Page {
     id: airportListPage
@@ -14,6 +15,12 @@ Page {
     // 主题和样式
     ThemeManager { id: theme }
     AppStyle { id: style }
+
+    // 导入进度对话框
+    ImportProgressDialog {
+        id: importProgressDialog
+        parent: Overlay.overlay
+    }
 
     // 文件选择对话框
     FileDialog {
@@ -29,6 +36,31 @@ Page {
             }
             console.log("选择的文件: " + filePath)
             appController.importData(filePath)
+        }
+    }
+
+    // 连接数据管理器信号
+    Connections {
+        target: appController.dataManager
+
+        function onDataImportStarted() {
+            console.log("导入开始")
+            importProgressDialog.resetProgress()
+            importProgressDialog.open()
+        }
+
+        function onDataImportProgress(currentStep, totalSteps, progress, stepName, taskDetail) {
+            console.log("导入进度:", currentStep, "/", totalSteps, "-", progress + "%", "-", stepName)
+            importProgressDialog.updateProgress(currentStep, totalSteps, progress, stepName, taskDetail)
+        }
+
+        function onDataImportCompleted(success, message) {
+            console.log("导入完成:", success, message)
+            if (success) {
+                importProgressDialog.showCompleted(message)
+            } else {
+                importProgressDialog.showFailed(message)
+            }
         }
     }
 
