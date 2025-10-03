@@ -1,6 +1,6 @@
 """
 EAIP Chart Processor
-处理 EAIP 航图数据：解压、重命名、分类、索引
+处理 EAIP 航图数据:解压、重命名、分类、索引
 """
 
 from dataclasses import dataclass
@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 import json
 import re
+from utils.logger import Logger
+
+logger = Logger.get_logger("ChartProcessor")
 
 try:
     import pymupdf as fitz
@@ -56,16 +59,25 @@ class ChartProcessor:
         self.terminal_path = data_path / "Data" / dir_name / "Terminal"
         self.json_path = data_path / "Data" / "JsonPath" / "AD.JSON"
 
+        logger.debug(f"初始化 ChartProcessor: data_path={data_path}, dir_name={dir_name}")
+        logger.debug(f"Terminal 路径: {self.terminal_path}")
+        logger.debug(f"JSON 路径: {self.json_path}")
+
     def validate_paths(self) -> bool:
         """验证路径有效性"""
+        logger.debug(f"验证路径: data_path={self.data_path}")
+
         if not self.data_path.exists():
-            print(f"[ERROR] 数据目录不存在: {self.data_path}")
+            logger.error(f"数据目录不存在: {self.data_path}")
             return False
 
+        logger.debug(f"数据目录存在: {self.data_path}")
+
         if not self.terminal_path.exists():
-            print(f"[WARNING] Terminal目录不存在: {self.terminal_path}")
+            logger.warning(f"Terminal目录不存在: {self.terminal_path}")
             # 尝试创建
             self.terminal_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"已创建 Terminal 目录: {self.terminal_path}")
 
         return True
 
@@ -130,15 +142,18 @@ class ChartProcessor:
 
     def rename_chart_files(self) -> None:
         """重命名航图文件（基于 AD.JSON）"""
+        logger.debug(f"开始重命名航图文件，JSON路径: {self.json_path}")
+
         if not self.json_path.exists():
-            print(f"[WARNING] AD.JSON 文件不存在: {self.json_path}")
+            logger.warning(f"AD.JSON 文件不存在: {self.json_path}")
             return
 
         try:
             with open(self.json_path, "r", encoding="utf-8") as file:
                 chart_data = json.load(file)
-            print(f"[INFO] 读取航图数据: {self.json_path}")
+            logger.info(f"读取航图数据: {len(chart_data)} 条记录")
 
+            renamed_count = 0
             for chart in chart_data:
                 if not chart.get("pdfPath"):
                     continue
@@ -147,7 +162,7 @@ class ChartProcessor:
                 icao = self.get_icao_from_path(old_path)
 
                 if not icao:
-                    print(f"[WARNING] 无法确定 ICAO 代码: {old_path}")
+                    logger.debug(f"无法确定 ICAO 代码: {old_path}")
                     continue
 
                 new_name = (chart["name"].replace(":", "-")
@@ -161,58 +176,78 @@ class ChartProcessor:
                     try:
                         new_path.parent.mkdir(parents=True, exist_ok=True)
                         old_path.rename(new_path)
-                        print(f"[SUCCESS] 重命名: {old_path.name} -> {new_path}")
+                        renamed_count += 1
+                        logger.debug(f"重命名: {old_path.name} -> {icao}/{new_name}")
                     except OSError as e:
-                        print(f"[ERROR] 重命名失败: {old_path}, {e}")
+                        logger.error(f"重命名失败: {old_path}, {e}")
                 else:
-                    print(f"[WARNING] 文件不存在: {old_path}")
+                    logger.debug(f"文件不存在: {old_path}")
+
+            logger.info(f"重命名完成，共处理 {renamed_count} 个文件")
 
         except Exception as e:
-            print(f"[ERROR] 重命名过程失败: {e}")
+            logger.error(f"重命名过程失败: {e}", exc_info=True)
 
     def organize_airport_files(self) -> None:
         """整理机场文件到分类文件夹"""
+        logger.debug("开始整理机场文件")
+
         try:
             if not self.terminal_path.exists():
-                print(f"[ERROR] Terminal 目录不存在: {self.terminal_path}")
+                logger.error(f"Terminal 目录不存在: {self.terminal_path}")
                 return
 
             airports = [d for d in self.terminal_path.iterdir() if d.is_dir()]
-            print(f"[INFO] 开始整理机场文件，机场数量: {len(airports)}")
+            logger.info(f"开始整理机场文件，机场数量: {len(airports)}")
 
+            moved_count = 0
             for airport in airports:
                 airport_path = self.terminal_path / airport.name
-                for pdf_file in airport_path.glob("*.pdf"):
+                pdf_files = list(airport_path.glob("*.pdf"))
+                logger.debug(f"处理机场 {airport.name}，PDF 文件数: {len(pdf_files)}")
+
+                for pdf_file in pdf_files:
                     for chart_type in self.CHART_TYPES:
                         if chart_type in pdf_file.name:
                             type_folder = airport_path / chart_type
                             type_folder.mkdir(parents=True, exist_ok=True)
                             new_path = type_folder / pdf_file.name
                             pdf_file.rename(new_path)
-                            print(f"[SUCCESS] 移动文件: {pdf_file.name} -> {chart_type}/")
+                            moved_count += 1
+                            logger.debug(f"移动文件: {pdf_file.name} -> {chart_type}/")
                             break
 
+            logger.info(f"整理完成，共移动 {moved_count} 个文件")
+
         except Exception as e:
-            print(f"[ERROR] 整理文件失败: {e}")
+            logger.error(f"整理文件失败: {e}", exc_info=True)
 
     def generate_index(self) -> None:
         """生成航图索引 (index.json)"""
+        logger.debug("开始生成航图索引")
+
         try:
             if not self.terminal_path.exists():
-                print(f"[ERROR] Terminal 目录不存在: {self.terminal_path}")
+                logger.error(f"Terminal 目录不存在: {self.terminal_path}")
                 return
 
             airports = [d for d in self.terminal_path.iterdir() if d.is_dir()]
+            logger.info(f"找到 {len(airports)} 个机场目录")
 
             for airport in airports:
                 airport_path = self.terminal_path / airport.name
+                logger.debug(f"处理机场 {airport.name}")
+
                 self.merge_special_charts(airport_path)
 
                 index_entries: List[Dict[str, str]] = []
                 chart_id = 1
 
                 # 处理根目录下的PDF文件
-                for pdf_file in airport_path.glob("*.pdf"):
+                root_pdfs = list(airport_path.glob("*.pdf"))
+                logger.debug(f"  根目录 PDF: {len(root_pdfs)} 个")
+
+                for pdf_file in root_pdfs:
                     path = pdf_file.name.replace("\\", "/")
                     index_entries.append({
                         "id": str(chart_id),
@@ -224,11 +259,14 @@ class ChartProcessor:
                     chart_id += 1
 
                 # 处理子文件夹中的PDF文件
-                for folder in airport_path.iterdir():
-                    if not folder.is_dir():
-                        continue
+                folders = [f for f in airport_path.iterdir() if f.is_dir()]
+                logger.debug(f"  子文件夹: {len(folders)} 个")
 
-                    for pdf_file in folder.glob("*.pdf"):
+                for folder in folders:
+                    folder_pdfs = list(folder.glob("*.pdf"))
+                    logger.debug(f"    {folder.name}: {len(folder_pdfs)} 个 PDF")
+
+                    for pdf_file in folder_pdfs:
                         path = f"{folder.name}/{pdf_file.name}".replace("\\", "/")
                         # 提取 code（去掉机场代码前缀）
                         code = pdf_file.name.split(folder.name)[0]
@@ -249,10 +287,10 @@ class ChartProcessor:
                 with open(index_file, "w", encoding="utf-8") as f:
                     json.dump(index_entries, f, ensure_ascii=False, indent=4)
 
-                print(f"[SUCCESS] 索引生成完成: {airport.name}, 图表数量: {len(index_entries)}")
+                logger.info(f"索引生成完成: {airport.name}, 图表数量: {len(index_entries)}")
 
         except Exception as e:
-            print(f"[ERROR] 生成索引失败: {e}")
+            logger.error(f"生成索引失败: {e}", exc_info=True)
 
     def process(self, actions: Optional[List[str]] = None) -> None:
         """
@@ -264,22 +302,24 @@ class ChartProcessor:
         valid_actions = ["rename", "organize", "index"]
         actions_to_run = actions if actions else valid_actions
 
+        logger.info(f"开始处理航图，操作: {actions_to_run}")
+
         if not isinstance(actions_to_run, list):
-            print(f"[ERROR] 参数类型错误: {actions_to_run}")
+            logger.error(f"参数类型错误: {actions_to_run}")
             return
 
         invalid_actions = [act for act in actions_to_run if act not in valid_actions]
         if invalid_actions:
-            print(f"[ERROR] 存在无效的操作: {invalid_actions}")
+            logger.error(f"存在无效的操作: {invalid_actions}")
             return
 
         if not self.validate_paths():
-            print("[ERROR] 路径验证失败，停止处理")
+            logger.error("路径验证失败，停止处理")
             return
 
         try:
             for action in actions_to_run:
-                print(f"[INFO] 执行 {action} 操作...")
+                logger.info(f"执行操作: {action}")
                 if action == "rename":
                     self.rename_chart_files()
                 elif action == "organize":
@@ -287,7 +327,7 @@ class ChartProcessor:
                 elif action == "index":
                     self.generate_index()
 
-            print(f"[SUCCESS] 处理完成: {actions_to_run}")
+            logger.info(f"处理完成: {actions_to_run}")
 
         except Exception as e:
-            print(f"[ERROR] 处理过程出错: {e}")
+            logger.error(f"处理过程出错: {e}", exc_info=True)

@@ -2,6 +2,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Dialogs
 import Qt5Compat.GraphicalEffects
 import "styles"
 
@@ -13,6 +14,23 @@ Page {
     // 主题和样式
     ThemeManager { id: theme }
     AppStyle { id: style }
+
+    // 文件选择对话框
+    FileDialog {
+        id: fileDialog
+        title: "选择 EAIP 数据压缩包"
+        nameFilters: ["ZIP files (*.zip)"]
+        fileMode: FileDialog.OpenFile
+        onAccepted: {
+            var filePath = fileDialog.selectedFile.toString()
+            // 移除 file:/// 前缀
+            if (filePath.startsWith("file:///")) {
+                filePath = filePath.substring(8)
+            }
+            console.log("选择的文件: " + filePath)
+            appController.importData(filePath)
+        }
+    }
 
     background: Rectangle {
         color: theme.background
@@ -73,8 +91,7 @@ Page {
                 flat: true
                 highlighted: true
                 onClicked: {
-                    // TODO: 打开文件选择对话框
-                    console.log("导入数据")
+                    fileDialog.open()
                 }
             }
 
@@ -187,7 +204,7 @@ Page {
                         // 图标
                         Text {
                             text: "🛫"
-                            font.pixelSize: style.fontSizeXLarge
+                            font.pixelSize: style.fontSizeXLarge || 24
                         }
 
                         // 文字信息
@@ -200,27 +217,27 @@ Page {
 
                                 Text {
                                     text: model.code
-                                    font.pixelSize: style.fontSizeMedium
+                                    font.pixelSize: style.fontSizeMedium || 16
                                     font.bold: true
                                     color: theme.accent
                                 }
 
                                 Text {
                                     text: "-"
-                                    font.pixelSize: style.fontSizeMedium
+                                    font.pixelSize: style.fontSizeMedium || 16
                                     color: theme.textSecondary
                                 }
 
                                 Text {
                                     text: model.nameZh
-                                    font.pixelSize: style.fontSizeMedium
+                                    font.pixelSize: style.fontSizeMedium || 16
                                     color: theme.textPrimary
                                 }
                             }
 
                             Text {
                                 text: model.nameEn
-                                font.pixelSize: style.fontSizeSmall
+                                font.pixelSize: style.fontSizeSmall || 12
                                 color: theme.textSecondary
                             }
                         }
@@ -228,7 +245,7 @@ Page {
                         // 箭头
                         Text {
                             text: "→"
-                            font.pixelSize: style.fontSizeLarge
+                            font.pixelSize: style.fontSizeLarge || 20
                             color: theme.accent
                         }
                     }

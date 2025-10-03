@@ -8,6 +8,9 @@ import re
 from pathlib import Path
 from typing import Union, List, Dict, Optional, Any
 from PIL import Image
+from utils.logger import Logger
+
+logger = Logger.get_logger("EaipHandler")
 
 try:
     import pymupdf as fitz
@@ -42,24 +45,33 @@ class EaipHandler:
         """自动检测 EAIP 文件夹名称"""
         try:
             target_path = self.base_path / "Data"
+            logger.debug(f"自动检测 EAIP 目录: {target_path}")
+
             if not target_path.exists():
-                print(f"[ERROR] 数据目录不存在: {target_path}")
+                logger.error(f"数据目录不存在: {target_path}")
                 return None
 
             # 查找 EAIP 开头的文件夹
-            eaip_dirs = [d for d in target_path.iterdir()
+            all_dirs = list(target_path.iterdir())
+            logger.debug(f"Data 目录下共有 {len(all_dirs)} 个项目")
+
+            eaip_dirs = [d for d in all_dirs
                         if d.is_dir() and d.name.startswith("EAIP")]
 
+            logger.debug(f"找到 {len(eaip_dirs)} 个 EAIP 文件夹")
+            if eaip_dirs:
+                logger.debug(f"EAIP 文件夹列表: {[d.name for d in eaip_dirs]}")
+
             if not eaip_dirs:
-                print(f"[WARNING] 未找到 EAIP 文件夹: {target_path}")
+                logger.warning(f"未找到 EAIP 文件夹: {target_path}")
                 return None
 
             detected_dir = eaip_dirs[0].name
-            print(f"[INFO] 检测到 EAIP 文件夹: {detected_dir}")
+            logger.info(f"检测到 EAIP 文件夹: {detected_dir}")
             return detected_dir
 
         except Exception as e:
-            print(f"[ERROR] 自动检测失败: {e}")
+            logger.error(f"自动检测失败: {e}", exc_info=True)
             return None
 
     def update_period(self, period: str) -> Dict[str, Any]:

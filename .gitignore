@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Claude AI Files
+.claude/
+
 # C extensions
 *.so
 
@@ -35,6 +38,8 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+app.log
+logs/
 
 # Unit test / coverage reports
 htmlcov/
@@ -205,3 +210,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local Data
+data/

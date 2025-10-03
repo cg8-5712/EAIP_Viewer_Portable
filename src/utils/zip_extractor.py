@@ -3,8 +3,12 @@ Zip Extractor - 压缩包解压工具
 """
 
 import zipfile
+import shutil
 from pathlib import Path
 from typing import Optional
+from utils.logger import Logger
+
+logger = Logger.get_logger("ZipExtractor")
 
 
 class ZipExtractor:
@@ -28,30 +32,73 @@ class ZipExtractor:
         Raises:
             FileNotFoundError: ZIP 文件不存在
             zipfile.BadZipFile: 不是有效的 ZIP 文件
+            OSError: 磁盘空间不足或其他 IO 错误
         """
+        logger.debug(f"开始解压: {zip_path} -> {extract_to}")
+
         zip_file_path = Path(zip_path)
         if not zip_file_path.exists():
+            logger.error(f"ZIP 文件不存在: {zip_path}")
             raise FileNotFoundError(f"ZIP 文件不存在: {zip_path}")
 
         extract_path = Path(extract_to)
-        extract_path.mkdir(parents=True, exist_ok=True)
 
         try:
+            # 创建解压目录
+            extract_path.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"创建解压目录: {extract_path}")
+
             with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
                 if password:
                     zip_ref.setpassword(password.encode('utf-8'))
 
+                # 获取文件列表
+                file_list = zip_ref.namelist()
+                logger.info(f"ZIP 文件包含 {len(file_list)} 个文件")
+
                 # 解压所有文件
                 zip_ref.extractall(extract_path)
 
+            logger.info(f"解压成功: {extract_path}")
             return True
 
         except zipfile.BadZipFile as e:
+            logger.error(f"无效的 ZIP 文件: {e}")
             raise zipfile.BadZipFile(f"无效的 ZIP 文件: {str(e)}")
 
+        except OSError as e:
+            # 捕获磁盘空间不足等错误
+            error_msg = str(e)
+            logger.error(f"解压失败 (OSError): {error_msg}", exc_info=True)
+
+            # 清理已解压的文件
+            if extract_path.exists():
+                logger.warning(f"清理不完整的解压目录: {extract_path}")
+                try:
+                    shutil.rmtree(extract_path)
+                    logger.info("清理完成")
+                except Exception as cleanup_error:
+                    logger.error(f"清理失败: {cleanup_error}")
+
+            # 检查是否是磁盘空间不足
+            if "No space left on device" in error_msg or e.errno == 28:
+                raise OSError("磁盘空间不足，无法完成解压") from e
+            else:
+                raise OSError(f"解压失败: {error_msg}") from e
+
         except Exception as e:
-            print(f"解压失败: {e}")
-            return False
+            logger.error(f"解压失败: {e}", exc_info=True)
+
+            # 清理已解压的文件
+            if extract_path.exists():
+                logger.warning(f"清理不完整的解压目录: {extract_path}")
+                try:
+                    shutil.rmtree(extract_path)
+                    logger.info("清理完成")
+                except Exception as cleanup_error:
+                    logger.error(f"清理失败: {cleanup_error}")
+
+            raise Exception(f"解压失败: {str(e)}") from e
 
     def list_contents(self, zip_path: str) -> list:
         """
