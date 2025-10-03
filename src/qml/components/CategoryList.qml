@@ -15,6 +15,28 @@ Rectangle {
 
     color: theme.cardBackground
 
+    // 分类数据模型
+    ListModel {
+        id: categoryModel
+    }
+
+    // 更新分类列表
+    function updateCategories(categories) {
+        categoryModel.clear()
+        for (var i = 0; i < categories.length; i++) {
+            categoryModel.append({
+                code: categories[i],
+                name: categories[i]
+            })
+        }
+
+        // 默认选择第一个分类
+        if (categoryModel.count > 0) {
+            categoryListView.currentIndex = 0
+            categorySelected(categories[0])
+        }
+    }
+
     // 分隔线
     Rectangle {
         anchors.right: parent.right
@@ -52,16 +74,12 @@ Rectangle {
 
         // 分类列表
         ListView {
+            id: categoryListView
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
 
-            model: ListModel {
-                ListElement { code: "AD"; name: "机场" }
-                ListElement { code: "SID"; name: "离场" }
-                ListElement { code: "STAR"; name: "进场" }
-                ListElement { code: "APP"; name: "进近" }
-            }
+            model: categoryModel
 
             delegate: ItemDelegate {
                 width: ListView.view.width

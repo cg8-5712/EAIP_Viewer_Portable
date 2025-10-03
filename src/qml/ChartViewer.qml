@@ -9,8 +9,8 @@ Page {
     id: chartViewerPage
 
     // 属性
-    property string airportCode: "ZBAA"
-    property string airportName: "北京首都国际机场"
+    property string airportCode: ""
+    property string airportName: ""
 
     // 信号
     signal backRequested()
@@ -18,6 +18,51 @@ Page {
     // 主题和样式
     ThemeManager { id: theme }
     AppStyle { id: style }
+
+    // 航图数据和分类
+    property var allCharts: []
+    property var categories: []
+
+    // 页面加载时获取数据
+    Component.onCompleted: {
+        if (airportCode) {
+            loadAirportCharts()
+        }
+    }
+
+    // 加载机场航图数据
+    function loadAirportCharts() {
+        console.log("加载机场航图数据:", airportCode)
+        allCharts = appController.dataManager.loadChartsForAirport(airportCode, "")
+        console.log("获取到航图数量:", allCharts.length)
+
+        // 提取唯一的分类
+        var categorySet = new Set()
+        for (var i = 0; i < allCharts.length; i++) {
+            var chart = allCharts[i]
+            if (chart.sort) {
+                categorySet.add(chart.sort)
+            }
+        }
+
+        // 转换为数组并排序
+        categories = Array.from(categorySet).sort()
+        console.log("分类列表:", categories)
+
+        // 更新分类列表
+        categoryList.updateCategories(categories)
+    }
+
+    // 根据分类过滤航图
+    function filterChartsByCategory(category) {
+        var filtered = []
+        for (var i = 0; i < allCharts.length; i++) {
+            if (allCharts[i].sort === category) {
+                filtered.push(allCharts[i])
+            }
+        }
+        chartList.updateCharts(filtered)
+    }
 
     background: Rectangle {
         color: theme.background
@@ -77,8 +122,9 @@ Page {
             Layout.preferredWidth: 150
             Layout.fillHeight: true
 
-            onCategorySelected: {
-                chartList.currentCategory = category
+            onCategorySelected: function(category) {
+                console.log("选择分类:", category)
+                filterChartsByCategory(category)
             }
         }
 

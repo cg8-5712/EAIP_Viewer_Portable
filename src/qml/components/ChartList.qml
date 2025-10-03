@@ -8,6 +8,7 @@ Rectangle {
     id: chartList
 
     property string currentCategory: ""
+    property string airportCode: ""
 
     signal chartSelected(string chartPath)
 
@@ -16,6 +17,26 @@ Rectangle {
     AppStyle { id: style }
 
     color: theme.background
+
+    // 航图数据模型
+    ListModel {
+        id: chartModel
+    }
+
+    // 更新航图列表
+    function updateCharts(charts) {
+        chartModel.clear()
+        for (var i = 0; i < charts.length; i++) {
+            var chart = charts[i]
+            chartModel.append({
+                chartId: chart.id || "",
+                code: chart.code || "",
+                name: chart.name || "",
+                path: chart.path || "",
+                sort: chart.sort || ""
+            })
+        }
+    }
 
     // 分隔线
     Rectangle {
@@ -54,17 +75,13 @@ Rectangle {
 
         // 航图列表
         ListView {
+            id: chartListView
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             spacing: style.spacingSmall
 
-            model: ListModel {
-                ListElement { name: "AD 1.1"; description: "机场概况" }
-                ListElement { name: "AD 1.2"; description: "机场数据" }
-                ListElement { name: "AD 2.1"; description: "跑道数据" }
-                ListElement { name: "AD 2.2"; description: "滑行道数据" }
-            }
+            model: chartModel
 
             delegate: Rectangle {
                 width: ListView.view.width
@@ -83,7 +100,8 @@ Rectangle {
 
                     onClicked: {
                         ListView.view.currentIndex = index
-                        chartSelected("/path/to/" + model.name + ".pdf")
+                        // 发送完整的航图路径
+                        chartSelected(model.path)
                     }
                 }
 
@@ -112,14 +130,16 @@ Rectangle {
                         spacing: 4
 
                         Text {
-                            text: model.name
+                            text: model.code || model.name
                             font.pixelSize: style.fontSizeMedium
                             font.bold: true
                             color: theme.textPrimary
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
                         }
 
                         Text {
-                            text: model.description
+                            text: model.name
                             font.pixelSize: style.fontSizeSmall
                             color: theme.textSecondary
                             elide: Text.ElideRight

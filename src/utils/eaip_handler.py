@@ -39,7 +39,8 @@ class EaipHandler:
         self.airac_period = airac_period
         self.dir_name = dir_name
         self.base_path = data_path / airac_period
-        self.terminal_path = self.base_path / "Data" / dir_name / "Terminal"
+        # 更新为新的路径结构（导入后已移动到根目录）
+        self.terminal_path = self.base_path / "Terminal"
 
     def auto_detect_dir_name(self) -> Optional[str]:
         """自动检测 EAIP 文件夹名称"""
@@ -91,11 +92,8 @@ class EaipHandler:
             self.airac_period = period
             self.base_path = self.data_path / period
 
-            # 自动检测 dir_name
-            detected_dir = self.auto_detect_dir_name()
-            if detected_dir:
-                self.dir_name = detected_dir
-                self.terminal_path = self.base_path / "Data" / self.dir_name / "Terminal"
+            # 更新为新的路径结构
+            self.terminal_path = self.base_path / "Terminal"
 
             # 检查路径是否存在
             if not self.base_path.exists():

@@ -560,15 +560,18 @@ class DataManager(QObject):
 
         return result
 
-    def _getEnrouteChartCount(self) -> int:
+    def _getEnrouteChartCount(self, data_path: Path) -> int:
         """
         获取航路图数量
+
+        Args:
+            data_path: AIRAC周期数据路径
 
         Returns:
             航路图数量
         """
         try:
-            enroute_path = self._data_path / self._airac_period / "Data" / self._dir_name / "ENROUTE"
+            enroute_path = data_path / "ENROUTE"  # 使用新路径结构
             logger.debug(f"获取航路图数量: {enroute_path}")
 
             if not enroute_path.exists():
@@ -592,10 +595,10 @@ class DataManager(QObject):
 
     def _parseAirportsData(self, data_path: Path) -> List[Dict[str, Any]]:
         """
-        解析机场数据（从 EAIP Terminal 目录）
+        解析机场数据
 
         Args:
-            data_path: 数据目录路径
+            data_path: AIRAC周期数据路径
 
         Returns:
             机场数据列表
@@ -603,8 +606,7 @@ class DataManager(QObject):
         logger.debug(f"开始解析机场数据: {data_path}")
         airports = []
 
-        # 扫描 Terminal 目录
-        terminal_path = data_path / "Data" / self._dir_name / "Terminal"
+        terminal_path = data_path / "Terminal"
         logger.debug(f"Terminal 路径: {terminal_path}")
 
         if not terminal_path.exists():
@@ -613,7 +615,6 @@ class DataManager(QObject):
 
         logger.debug(f"Terminal 目录存在: {terminal_path}")
 
-        # 列出所有目录
         all_items = list(terminal_path.iterdir())
         logger.debug(f"Terminal 目录下的项目数: {len(all_items)}")
 
@@ -626,7 +627,6 @@ class DataManager(QObject):
             index_file = airport_dir / "index.json"
             logger.debug(f"处理机场: {icao}, 索引文件: {index_file}")
 
-            # 读取索引获取航图分类
             categories = []
             chart_count = 0
 
@@ -635,7 +635,6 @@ class DataManager(QObject):
                     with open(index_file, "r", encoding="utf-8") as f:
                         charts = json.load(f)
                         chart_count = len(charts)
-                        # 提取所有分类
                         categories = list(set(chart.get("sort", "general") for chart in charts))
                     logger.debug(f"  {icao}: {chart_count} 个航图, 分类: {categories}")
                 except Exception as e:
@@ -651,21 +650,7 @@ class DataManager(QObject):
                 'chart_count': chart_count
             })
 
-        # 获取航路图数量
-        enroute_count = 0
-        enroute_path = data_path / "Data" / self._dir_name / "ENROUTE"
-        if enroute_path.exists():
-            enroute_index = enroute_path / "index.json"
-            if enroute_index.exists():
-                try:
-                    with open(enroute_index, "r", encoding="utf-8") as f:
-                        enroute_charts = json.load(f)
-                        enroute_count = len(enroute_charts)
-                    logger.debug(f"航路图数量: {enroute_count}")
-                except Exception as e:
-                    logger.error(f"读取航路图索引失败: {e}")
-
-        logger.info(f"解析机场数据完成，共 {len(airports)} 个机场 + {enroute_count} 个航路图")
+        logger.info(f"解析机场数据完成，共 {len(airports)} 个机场")
         return airports
 
     def _saveAirportsData(self, airports_data: List[Dict[str, Any]]):
@@ -696,44 +681,44 @@ class DataManager(QObject):
         """
         logger.debug("开始加载机场数据")
 
-        # 优先从 Terminal 目录加载最新数据
-        terminal_path = self._data_path / self._airac_period / "Data" / self._dir_name / "Terminal"
-        logger.debug(f"检查 Terminal 目录: {terminal_path}")
-
-        if terminal_path.exists():
-            logger.info(f"从 Terminal 目录加载机场数据: {terminal_path}")
-            airports = self._parseAirportsData(self._data_path / self._airac_period)
-            if airports:
-                enroute_count = self._getEnrouteChartCount()
-                logger.info(f"加载成功: {len(airports)} 个机场 + {enroute_count} 个航路图")
-                self.airportsLoaded.emit(airports)
-                return airports
-            else:
-                logger.warning("Terminal 目录存在但未找到机场数据")
-        else:
-            logger.debug(f"Terminal 目录不存在: {terminal_path}")
-
-        # 否则从保存的 JSON 加载
-        save_path = self._data_path / "airports.json"
-        logger.debug(f"尝试从 JSON 文件加载: {save_path}")
-
-        if not save_path.exists():
-            logger.warning(f"机场数据文件不存在: {save_path}")
+        # 扫描 data 目录，查找所有 AIRAC 周期文件夹
+        if not self._data_path.exists():
+            logger.warning(f"数据目录不存在: {self._data_path}")
             return []
 
-        try:
-            with open(save_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                # 更新周期信息
-                self._airac_period = data.get('airac_period', self._airac_period)
-                self._dir_name = data.get('dir_name', self._dir_name)
-                airports = data.get('airports', [])
-                enroute_count = self._getEnrouteChartCount()
-                logger.info(f"从 JSON 加载成功: {len(airports)} 个机场 + {enroute_count} 个航路图")
-                self.airportsLoaded.emit(airports)
-                return airports
-        except Exception as e:
-            logger.error(f"加载机场数据失败: {e}", exc_info=True)
+        # 查找所有包含 Terminal 的 AIRAC 周期目录
+        airac_periods = []
+        for item in self._data_path.iterdir():
+            if item.is_dir() and item.name != "cache" and item.name != ".git":
+                terminal_path = item / "Terminal"
+                if terminal_path.exists() and terminal_path.is_dir():
+                    airac_periods.append(item.name)
+                    logger.debug(f"发现 AIRAC 周期数据: {item.name}")
+
+        if not airac_periods:
+            logger.info("未发现任何 AIRAC 周期数据")
+            return []
+
+        # 使用最新的 AIRAC 周期（按名称排序，最大的是最新的）
+        latest_period = sorted(airac_periods)[-1]
+        logger.info(f"使用最新的 AIRAC 周期: {latest_period}")
+        self._airac_period = latest_period
+
+        # 重新初始化 EAIP 处理器
+        self._initialize_eaip_handler()
+
+        # 从 Terminal 目录加载数据
+        terminal_path = self._data_path / latest_period / "Terminal"
+        logger.info(f"从 Terminal 目录加载机场数据: {terminal_path}")
+
+        airports = self._parseAirportsData(self._data_path / latest_period)
+        if airports:
+            enroute_count = self._getEnrouteChartCount(self._data_path / latest_period)
+            logger.info(f"加载成功: {len(airports)} 个机场 + {enroute_count} 个航路图")
+            self.airportsLoaded.emit(airports)
+            return airports
+        else:
+            logger.warning("未找到机场数据")
             return []
 
     @Slot(str, str, result=list)
