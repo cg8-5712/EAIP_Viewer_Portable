@@ -1,0 +1,15 @@
+{
+  "data_path": "./data",
+  "cache_path": "./cache",
+  "max_pins": 10,
+  "pdf_render_dpi": 150,
+  "language": "zh_CN",
+  "theme": {
+    "mode": "light",
+    "accent_color": "aviation_blue"
+  },
+  "splash_screen": {
+    "enabled": true,
+    "min_display_time": 1500
+  }
+}

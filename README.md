@@ -5,6 +5,7 @@
 ## 功能特性
 
 ### 核心功能
+- **启动画面**：应用启动时展示精美的加载封面，提升品牌体验
 - **数据导入**：支持导入压缩包（.zip）作为数据源，自动解压和处理
 - **机场列表**：首页显示所有可用机场的列表
 - **分类浏览**：按类型分类浏览航图（AD、SID、STAR、APP 等）
@@ -49,6 +50,7 @@ EAIP_Viewer_portable/
 │   │   └── config.py           # 配置管理
 │   ├── qml/
 │   │   ├── main.qml            # 主窗口
+│   │   ├── SplashScreen.qml    # 启动画面
 │   │   ├── AirportList.qml     # 机场列表页面
 │   │   ├── ChartViewer.qml     # 航图查看器页面
 │   │   ├── components/
@@ -59,15 +61,21 @@ EAIP_Viewer_portable/
 │   │   └── styles/
 │   │       ├── AppStyle.qml        # 应用样式
 │   │       └── ThemeManager.qml    # 主题管理
-│   └── i18n/
-│       ├── zh_CN.ts            # 简体中文
-│       ├── zh_TW.ts            # 繁体中文
-│       └── en_US.ts            # 英文
+│   ├── i18n/
+│   │   ├── zh_CN.ts            # 简体中文
+│   │   ├── zh_TW.ts            # 繁体中文
+│   │   └── en_US.ts            # 英文
+│   └── resources/
+│       ├── images/
+│       │   ├── splash_logo.svg     # 启动画面 Logo
+│       │   ├── app_icon.png        # 应用图标
+│       │   └── placeholder.png     # 占位图
+│       └── fonts/              # 自定义字体（可选）
 ├── data/                       # 数据目录（解压后的数据）
 ├── cache/                      # 缓存目录
 ├── config/                     # 配置文件
 ├── requirements.txt            # Python 依赖
-├── setup.py                    # 打包配置
+├── .gitignore                  # Git 忽略文件
 └── README.md                   # 项目说明
 ```
 
@@ -79,6 +87,56 @@ EAIP_Viewer_portable/
 - **布局**：卡片式布局，流畅动画过渡
 - **交互**：悬浮阴影、毛玻璃效果、响应式设计
 - **国际化**：支持中文（简体/繁体）、英文，界面文字动态切换
+
+### 0. 启动画面（Splash Screen）
+
+应用启动时显示的加载封面，展示品牌标识并初始化应用资源。
+
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│                                                 │
+│                                                 │
+│               ╔═══════════════╗                 │
+│               ║               ║                 │
+│               ║   ✈️  航图     ║                 │
+│               ║               ║                 │
+│               ╚═══════════════╝                 │
+│                                                 │
+│            EAIP Viewer                          │
+│        Electronic Aeronautical                  │
+│      Information Publication Viewer             │
+│                                                 │
+│                   v1.0.0                        │
+│                                                 │
+│            ▰▰▰▰▰▱▱▱▱▱                          │
+│             加载中... 60%                        │
+│                                                 │
+│                                                 │
+│     Powered by Python & Qt6                     │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+**设计特性：**
+- **居中 Logo**：飞机图标 + "航图" 文字，简洁大气
+- **应用名称**：EAIP Viewer + 英文全称
+- **版本信息**：显示当前应用版本
+- **加载进度**：动画进度条 + 百分比提示
+- **渐变背景**：蓝色渐变（航空主题），跟随系统主题调整
+- **淡入淡出**：启动 500ms 淡入，完成后 300ms 淡出到主界面
+- **最小显示时间**：至少显示 1.5 秒，确保用户看到品牌
+
+**启动流程：**
+```
+应用启动 → 显示启动画面 (淡入)
+  → 初始化配置 (20%)
+  → 加载主题/语言 (40%)
+  → 初始化数据库 (60%)
+  → 加载已保存数据 (80%)
+  → 预加载组件 (100%)
+  → 淡出 → 进入主界面
+```
 
 ### 1. 主窗口布局
 ```
@@ -230,6 +288,7 @@ PyMuPDF>=1.23.0
 
 ### Phase 1: 基础框架
 - [ ] Qt6 + QML 基础框架搭建
+- [ ] 启动画面（Splash Screen）实现
 - [ ] 主窗口和路由系统
 - [ ] 基本的数据模型
 - [ ] 主题管理系统（ThemeManager）
@@ -253,6 +312,7 @@ PyMuPDF>=1.23.0
 - [ ] 多主题色方案实现
 - [ ] 主题自动切换（跟随系统）
 - [ ] 配置持久化
+- [ ] 启动画面多语言支持
 
 ### Phase 5: 功能完善
 - [ ] 搜索功能
@@ -261,27 +321,32 @@ PyMuPDF>=1.23.0
 - [ ] 跨平台测试
 
 ### Phase 6: 打包发布
-- [ ] PyInstaller 打包配置
-- [ ] Windows 可执行文件
-- [ ] Linux AppImage
-- [ ] macOS .app 包
+- [ ] PyInstaller 打包配置（可选）
+- [ ] 应用图标和启动画面资源
+- [ ] Windows 可执行文件（.exe）
+- [ ] Linux 可执行文件
+- [ ] macOS 应用包（.app）
 
 ## 使用说明
 
-### 安装依赖
+### 1. 安装依赖（不使用虚拟环境）
 ```bash
 pip install -r requirements.txt
 ```
 
-### 运行应用
+### 2. 运行应用
 ```bash
 python src/main.py
 ```
 
-### 打包应用
+或在项目根目录直接双击运行脚本（Windows）：
 ```bash
-python setup.py build
+python src\main.py
 ```
+
+### 3. 退出应用
+- 快捷键：`Ctrl+Q`
+- 全屏切换：`F11`
 
 ## 配置说明
 
@@ -312,6 +377,10 @@ data.zip
   "theme": {
     "mode": "light",
     "accent_color": "aviation_blue"
+  },
+  "splash_screen": {
+    "enabled": true,
+    "min_display_time": 1500
   }
 }
 ```
@@ -334,6 +403,8 @@ data.zip
   - `pink`
   - `gray`
   - 或自定义 HEX 色值（如 "#1976D2"）
+- `splash_screen.enabled`: 是否显示启动画面
+- `splash_screen.min_display_time`: 最小显示时间（毫秒）
 
 ## 许可证
 
