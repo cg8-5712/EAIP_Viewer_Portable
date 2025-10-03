@@ -169,34 +169,15 @@ Dialog {
             }
 
             // 任务详情区域
-            Rectangle {
+            Text {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: theme.isDark ? Qt.rgba(0, 0, 0, 0.2) : Qt.rgba(0, 0, 0, 0.05)
-                radius: style.cardRadius
-
-                ScrollView {
-                    anchors.fill: parent
-                    anchors.margins: style.spacingNormal
-                    clip: true
-
-                    ColumnLayout {
-                        width: parent.width
-                        spacing: style.spacingSmall
-
-                        // 当前任务详情
-                        Text {
-                            Layout.fillWidth: true
-                            text: progressDialog.taskDetail || "准备中..."
-                            font.pixelSize: style.fontSizeSmall || 12
-                            color: theme.textSecondary
-                            wrapMode: Text.WordWrap
-                            lineHeight: 1.5
-                        }
-
-                        Item { Layout.fillHeight: true }
-                    }
-                }
+                Layout.preferredHeight: style.fontSizeSmall * 2 || 24
+                text: progressDialog.taskDetail || "准备中..."
+                font.pixelSize: style.fontSizeSmall || 12
+                color: theme.textSecondary
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
             }
 
             // 结果消息 (完成或失败时显示)
