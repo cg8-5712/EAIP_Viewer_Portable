@@ -39,6 +39,11 @@ Page {
         }
     }
 
+    // 机场数据模型
+    ListModel {
+        id: airportModel
+    }
+
     // 连接数据管理器信号
     Connections {
         target: appController.dataManager
@@ -60,6 +65,35 @@ Page {
                 importProgressDialog.showCompleted(message)
             } else {
                 importProgressDialog.showFailed(message)
+            }
+        }
+
+        function onAirportsLoaded(airports) {
+            console.log("机场数据加载完成，机场数量:", airports.length)
+            airportModel.clear()
+            for (var i = 0; i < airports.length; i++) {
+                airportModel.append({
+                    code: airports[i].code,
+                    nameZh: airports[i].name_zh,
+                    nameEn: airports[i].name_en,
+                    chartCount: airports[i].chart_count || 0
+                })
+            }
+        }
+    }
+
+    // 页面加载时尝试加载已保存的数据
+    Component.onCompleted: {
+        var savedAirports = appController.dataManager.loadSavedAirports()
+        if (savedAirports && savedAirports.length > 0) {
+            console.log("加载保存的机场数据，数量:", savedAirports.length)
+            for (var i = 0; i < savedAirports.length; i++) {
+                airportModel.append({
+                    code: savedAirports[i].code,
+                    nameZh: savedAirports[i].name_zh,
+                    nameEn: savedAirports[i].name_en,
+                    chartCount: savedAirports[i].chart_count || 0
+                })
             }
         }
     }
@@ -176,23 +210,40 @@ Page {
             ListView {
                 id: airportListView
                 spacing: style.spacingMedium
+                model: airportModel
 
-                // 示例数据模型
-                model: ListModel {
-                    ListElement {
-                        code: "ZBAA"
-                        nameZh: "北京首都国际机场"
-                        nameEn: "Beijing Capital International Airport"
-                    }
-                    ListElement {
-                        code: "ZSPD"
-                        nameZh: "上海浦东国际机场"
-                        nameEn: "Shanghai Pudong International Airport"
-                    }
-                    ListElement {
-                        code: "ZGGG"
-                        nameZh: "广州白云国际机场"
-                        nameEn: "Guangzhou Baiyun International Airport"
+                // 空状态提示
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.6
+                    height: 200
+                    visible: airportModel.count === 0
+                    color: "transparent"
+
+                    ColumnLayout {
+                        anchors.centerIn: parent
+                        spacing: style.spacingNormal
+
+                        Text {
+                            text: "📦"
+                            font.pixelSize: 48
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Text {
+                            text: "暂无机场数据"
+                            font.pixelSize: style.fontSizeLarge || 20
+                            font.bold: true
+                            color: theme.textPrimary
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Text {
+                            text: "请点击上方 \"导入数据\" 按钮导入 EAIP 数据包"
+                            font.pixelSize: style.fontSizeMedium || 16
+                            color: theme.textSecondary
+                            Layout.alignment: Qt.AlignHCenter
+                        }
                     }
                 }
 
