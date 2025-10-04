@@ -2,6 +2,9 @@
 
 一个基于 Python Qt6 + QML 的跨平台航图查看器应用程序。
 
+![CI](https://github.com/your-username/EAIP_Viewer_portable/workflows/CI/badge.svg)
+![Release](https://github.com/your-username/EAIP_Viewer_portable/workflows/Build%20and%20Release/badge.svg)
+
 ## 功能特性
 
 ### 核心功能
