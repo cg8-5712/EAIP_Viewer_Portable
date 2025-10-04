@@ -8,6 +8,12 @@ import sys
 import shutil
 from pathlib import Path
 
+# 设置 UTF-8 编码（兼容 Windows 环境）
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 # 项目配置
 APP_NAME = "EAIP_Viewer"
 MAIN_SCRIPT = "src/main.py"

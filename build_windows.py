@@ -7,6 +7,12 @@ import subprocess
 import sys
 import os
 
+# 设置 UTF-8 编码（兼容 Windows 环境）
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 def check_requirements():
     """检查必要的依赖"""
     print("检查依赖...")
