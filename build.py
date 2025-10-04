@@ -46,7 +46,6 @@ def build_with_nuitka():
         # 输出配置
         f"--output-dir={BUILD_DIR}",
         "--standalone",  # 独立模式（多文件）
-        "--onefile-tempdir-spec=%TEMP%/eaip_viewer",  # 如果需要临时文件
 
         # 应用配置
         f"--output-filename={APP_NAME}.exe",

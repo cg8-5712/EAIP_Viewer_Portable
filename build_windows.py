@@ -43,8 +43,7 @@ def build():
     # Nuitka 编译参数
     args = [
         sys.executable, '-m', 'nuitka',
-        '--standalone',                    # 独立模式
-        '--onefile',                       # 单文件
+        '--standalone',                    # 独立模式（多文件）
         '--windows-console-mode=disable',  # 无控制台窗口
         '--enable-plugin=pyside6',         # PySide6 插件
         '--include-qt-plugins=qml',        # 包含 QML 插件
@@ -95,11 +94,13 @@ def build():
         print("\n" + "="*60)
         print("✓ 打包成功!")
         print("="*60)
-        print(f"\n可执行文件位置: dist\\EAIPViewer.exe")
+        print(f"\n输出目录: dist\\EAIPViewer.dist\\")
+        print(f"主程序: dist\\EAIPViewer.dist\\EAIPViewer.exe")
         print("\n提示:")
-        print("  - 首次运行可能需要解压缓存 (10-30秒)")
-        print("  - 文件大小约 80-150 MB")
-        print("  - 可直接分发，无需 Python 环境")
+        print("  - 整个 EAIPViewer.dist 文件夹包含所有依赖")
+        print("  - 文件夹大小约 150-250 MB")
+        print("  - 可直接分发整个文件夹，无需 Python 环境")
+        print("  - 启动速度快，无需解压临时文件")
     else:
         print("\n" + "="*60)
         print("✗ 打包失败")
