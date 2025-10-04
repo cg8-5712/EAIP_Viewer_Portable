@@ -1,0 +1,60 @@
+name: Build Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-check:
+    name: Build Check
+    runs-on: windows-latest
+    if: contains(github.event.head_commit.message, '[build check]') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Clang
+        run: |
+          choco install llvm -y
+        shell: pwsh
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install nuitka ordered-set zstandard
+
+      - name: Build with Nuitka
+        run: |
+          python build.py
+        shell: pwsh
+
+      - name: Verify build output
+        run: |
+          $buildFiles = Get-ChildItem -Path dist -Filter *.zip
+          if ($buildFiles.Count -gt 0) {
+            Write-Host "✓ Build successful"
+            foreach ($file in $buildFiles) {
+              $size = $file.Length / 1MB
+              Write-Host "  - $($file.Name): $([math]::Round($size, 2)) MB"
+            }
+          } else {
+            Write-Host "✗ Build failed: No output files found"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-check-output
+          path: dist/*.zip
+          retention-days: 7
