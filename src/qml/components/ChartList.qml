@@ -25,9 +25,20 @@ Rectangle {
 
     // 更新航图列表
     function updateCharts(charts) {
+        console.log("==================== 更新航图列表 ====================")
+        console.log("[ChartList] 接收到航图数量:", charts.length)
+
         chartModel.clear()
         for (var i = 0; i < charts.length; i++) {
             var chart = charts[i]
+            console.log("[ChartList] 添加航图", i, ":", {
+                id: chart.id,
+                code: chart.code,
+                name: chart.name,
+                path: chart.path,
+                sort: chart.sort
+            })
+
             chartModel.append({
                 chartId: chart.id || "",
                 code: chart.code || "",
@@ -36,6 +47,9 @@ Rectangle {
                 sort: chart.sort || ""
             })
         }
+
+        console.log("[ChartList] 航图列表模型数量:", chartModel.count)
+        console.log("===================================================")
     }
 
     // 分隔线
@@ -84,9 +98,9 @@ Rectangle {
             model: chartModel
 
             delegate: Rectangle {
-                width: ListView.view.width
+                width: chartListView.width
                 height: 80
-                color: highlighted ? theme.selected : (hovered ? theme.hover : "transparent")
+                color: ListView.isCurrentItem ? theme.selected : (hovered ? theme.hover : "transparent")
 
                 property bool hovered: false
 
@@ -99,9 +113,20 @@ Rectangle {
                     onExited: parent.hovered = false
 
                     onClicked: {
-                        ListView.view.currentIndex = index
+                        console.log("==================== 点击航图项 ====================")
+                        console.log("[ChartList] 索引:", index)
+                        console.log("[ChartList] 航图 ID:", model.chartId)
+                        console.log("[ChartList] 航图代码:", model.code)
+                        console.log("[ChartList] 航图名称:", model.name)
+                        console.log("[ChartList] 航图路径:", model.path)
+                        console.log("[ChartList] 航图分类:", model.sort)
+
+                        chartListView.currentIndex = index
+
+                        console.log("[ChartList] 发送 chartSelected 信号，路径:", model.path)
                         // 发送完整的航图路径
                         chartSelected(model.path)
+                        console.log("===================================================")
                     }
                 }
 

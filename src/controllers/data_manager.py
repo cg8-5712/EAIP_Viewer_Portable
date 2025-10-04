@@ -733,7 +733,14 @@ class DataManager(QObject):
         Returns:
             航图数据列表
         """
+        logger.info("=" * 60)
+        logger.info(f"[DataManager] 加载机场航图数据")
+        logger.info(f"[DataManager] 机场代码: {airport_code}")
+        logger.info(f"[DataManager] 分类: {category if category else '全部'}")
+        logger.info(f"[DataManager] AIRAC 周期: {self._airac_period}")
+
         if not self._eaip_handler:
+            logger.error("[DataManager] EAIP 处理器未初始化")
             return []
 
         charts = self._eaip_handler.get_chart_list(
@@ -741,7 +748,33 @@ class DataManager(QObject):
             search_type=category if category else None
         )
 
-        return charts if charts else []
+        logger.info(f"[DataManager] 从 EAIP Handler 获取到 {len(charts) if charts else 0} 个航图")
+
+        if not charts:
+            logger.warning("[DataManager] 未获取到航图数据")
+            return []
+
+        # 为每个航图添加完整的文件路径
+        airport_path = self._data_path / self._airac_period / "Terminal" / airport_code
+        logger.info(f"[DataManager] 机场路径: {airport_path}")
+        logger.info(f"[DataManager] 机场路径存在: {airport_path.exists()}")
+
+        for i, chart in enumerate(charts):
+            if "path" in chart:
+                original_path = chart["path"]
+                # 构建完整路径（索引中的 path 已经是相对路径）
+                file_path = airport_path / chart["path"]
+                # 转换为字符串并使用正斜杠（QML 兼容）
+                chart["path"] = str(file_path).replace("\\", "/")
+
+                logger.debug(f"[DataManager] 航图 {i}: {chart.get('name', 'N/A')}")
+                logger.debug(f"  - 原始路径: {original_path}")
+                logger.debug(f"  - 完整路径: {chart['path']}")
+                logger.debug(f"  - 文件存在: {file_path.exists()}")
+
+        logger.info(f"[DataManager] 返回 {len(charts)} 个航图，路径已转换")
+        logger.info("=" * 60)
+        return charts
 
     @Slot(str, str, result=str)
     def getChartByCode(self, airport_code: str, chart_code: str) -> str:

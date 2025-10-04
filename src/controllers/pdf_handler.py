@@ -5,6 +5,7 @@ PDF Handler - 处理 PDF 文件的渲染和操作
 from PySide6.QtCore import QObject, Signal, Slot, Property, QUrl
 from PySide6.QtGui import QImage, QPixmap
 from pathlib import Path
+import tempfile
 
 try:
     import pymupdf as fitz  # PyMuPDF 新版本导入方式
@@ -22,6 +23,7 @@ class PdfHandler(QObject):
     pdfLoaded = Signal(bool, str)  # 成功/失败, 消息
     pageRendered = Signal(QImage)  # 页面渲染完成
     thumbnailGenerated = Signal(str, QImage)  # 文件路径, 缩略图
+    pageImageReady = Signal(str)  # 页面图片文件路径
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -29,6 +31,9 @@ class PdfHandler(QObject):
         self._current_page = 0
         self._zoom_level = 1.0
         self._rotation = 0
+        self._temp_dir = Path(tempfile.gettempdir()) / "eaip_viewer"
+        self._temp_dir.mkdir(parents=True, exist_ok=True)
+        self._render_counter = 0  # 渲染计数器，用于生成唯一文件名
 
     @Slot(str)
     def loadPdf(self, file_path: str):
@@ -206,3 +211,92 @@ class PdfHandler(QObject):
     def zoomLevel(self):
         """当前缩放级别"""
         return self._zoom_level
+
+    @Slot(str, float, result=str)
+    def renderPdfToImage(self, file_path: str, zoom: float = 1.0) -> str:
+        """
+        渲染 PDF 第一页为图片并返回临时文件路径
+
+        Args:
+            file_path: PDF 文件路径
+            zoom: 缩放比例
+
+        Returns:
+            临时图片文件路径
+        """
+        print("=" * 70)
+        print(f"[PdfHandler] renderPdfToImage 被调用")
+        print(f"[PdfHandler] 文件路径: {file_path}")
+        print(f"[PdfHandler] 路径类型: {type(file_path)}")
+        print(f"[PdfHandler] 路径长度: {len(file_path) if file_path else 0}")
+        print(f"[PdfHandler] 缩放比例: {zoom}")
+
+        if fitz is None:
+            print("[ERROR] PyMuPDF 未安装，无法渲染 PDF")
+            return ""
+
+        try:
+            from pathlib import Path
+            pdf_path = Path(file_path)
+            print(f"[PdfHandler] 转换为 Path: {pdf_path}")
+            print(f"[PdfHandler] 文件存在: {pdf_path.exists()}")
+
+            if not pdf_path.exists():
+                print(f"[ERROR] PDF 文件不存在: {file_path}")
+                return ""
+
+            print(f"[PdfHandler] 开始打开 PDF 文档...")
+            # 打开 PDF 文档
+            doc = fitz.open(file_path)
+            print(f"[PdfHandler] PDF 文档已打开")
+            print(f"[PdfHandler] 页数: {doc.page_count}")
+
+            page = doc[0]  # 第一页
+            print(f"[PdfHandler] 获取第一页成功")
+            print(f"[PdfHandler] 页面尺寸: {page.rect.width} x {page.rect.height}")
+
+            # 应用缩放
+            mat = fitz.Matrix(zoom, zoom)
+            print(f"[PdfHandler] 缩放矩阵已创建: {zoom}")
+
+            # 渲染为图像
+            print(f"[PdfHandler] 开始渲染图像...")
+            pix = page.get_pixmap(matrix=mat)
+            print(f"[PdfHandler] 图像渲染完成")
+            print(f"[PdfHandler] 图像尺寸: {pix.width} x {pix.height}")
+
+            # 转换为 QImage
+            img_data = pix.samples
+            from PySide6.QtGui import QImage
+            img = QImage(img_data, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+            print(f"[PdfHandler] QImage 创建成功")
+            print(f"[PdfHandler] QImage 尺寸: {img.width()} x {img.height()}")
+
+            # 保存到临时文件（使用计数器生成唯一文件名避免缓存）
+            self._render_counter += 1
+            temp_file = self._temp_dir / f"page_{self._render_counter}.png"
+            print(f"[PdfHandler] 临时文件路径: {temp_file}")
+            print(f"[PdfHandler] 临时目录存在: {self._temp_dir.exists()}")
+
+            success = img.save(str(temp_file))
+            print(f"[PdfHandler] 图片保存结果: {success}")
+            print(f"[PdfHandler] 保存后文件存在: {temp_file.exists()}")
+
+            if temp_file.exists():
+                print(f"[PdfHandler] 文件大小: {temp_file.stat().st_size} 字节")
+
+            doc.close()
+            print(f"[PdfHandler] PDF 文档已关闭")
+
+            # 返回文件路径（使用 file:/// 格式）
+            result_path = str(temp_file).replace("\\", "/")
+            print(f"[PdfHandler] 返回路径: {result_path}")
+            print("=" * 70)
+            return result_path
+
+        except Exception as e:
+            print(f"[ERROR] 渲染 PDF 失败: {e}")
+            import traceback
+            traceback.print_exc()
+            print("=" * 70)
+            return ""
