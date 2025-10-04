@@ -1,0 +1,45 @@
+{
+  "_comment": "EAIP Viewer 配置文件示例 - 复制此文件为 settings.json 并根据需要修改",
+
+  "data_path": "./data",
+  "_data_path_desc": "航图数据存储路径，相对于项目根目录",
+
+  "cache_path": "./cache",
+  "_cache_path_desc": "缓存目录路径，用于存储临时文件和渲染的PDF图片",
+
+  "max_pins": 10,
+  "_max_pins_desc": "最大固定航图数量，范围：1-20",
+
+  "pdf_render_dpi": 150,
+  "_pdf_render_dpi_desc": "PDF 渲染 DPI，影响图片清晰度和文件大小，推荐：100-300",
+
+  "language": "zh_CN",
+  "_language_desc": "界面语言，可选值：zh_CN（简体中文）、en_US（英文）",
+
+  "theme": {
+    "mode": "light",
+    "_mode_desc": "主题模式，可选值：light（浅色）、dark（深色）、auto（跟随系统）",
+
+    "accent_color": "aviation_blue",
+    "_accent_color_desc": "主题色，可选值：aviation_blue、red、green、purple 等"
+  },
+
+  "splash_screen": {
+    "enabled": true,
+    "_enabled_desc": "是否启用启动画面",
+
+    "min_display_time": 1500,
+    "_min_display_time_desc": "启动画面最小显示时间（毫秒），范围：500-5000"
+  },
+
+  "import": {
+    "max_workers": "auto",
+    "_max_workers_desc": "导入数据时使用的工作线程数，可选值：auto（自动）或具体数字（1-线程数*0.7）",
+
+    "auto_workers_ratio": 0.5,
+    "_auto_workers_ratio_desc": "自动模式下使用的 CPU 线程比例，范围：0.1-0.7，默认 0.5 表示使用 50% 的 CPU 线程"
+  },
+
+  "pinned_charts": [],
+  "_pinned_charts_desc": "固定的航图列表，由程序自动管理，无需手动编辑"
+}

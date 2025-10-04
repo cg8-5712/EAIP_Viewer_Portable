@@ -172,5 +172,11 @@ Page {
     footer: PinBar {
         id: pinBar
         height: style.pinBarHeight
+
+        onChartClicked: function(filePath) {
+            console.log("[ChartViewer] PinBar 点击航图，路径:", filePath)
+            // 加载 PDF
+            pdfViewer.loadChart(filePath)
+        }
     }
 }

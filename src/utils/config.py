@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 import os
 from typing import Any, Dict
+from .path_helper import get_config_file_path, get_app_root, resolve_relative_path
 
 
 class Config(QObject):
@@ -37,7 +38,11 @@ class Config(QObject):
 
     def __init__(self, config_file: str = "./config/settings.json", parent=None):
         super().__init__(parent)
-        self._config_file = Path(config_file)
+        # 使用 path_helper 解析路径，支持打包和开发环境
+        if config_file == "./config/settings.json":
+            self._config_file = get_config_file_path()
+        else:
+            self._config_file = resolve_relative_path(config_file)
         self._config: Dict[str, Any] = {}
         self.load()
 
@@ -247,7 +252,8 @@ class Config(QObject):
         Returns:
             缓存目录的绝对路径
         """
-        cache_path = Path(self.get('cache_path', './cache'))
+        cache_path_config = self.get('cache_path', './cache')
+        cache_path = resolve_relative_path(cache_path_config)
         # 确保缓存目录存在
         cache_path.mkdir(parents=True, exist_ok=True)
         return str(cache_path.resolve())

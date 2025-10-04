@@ -8,6 +8,9 @@ import "../styles"
 Rectangle {
     id: pinBar
 
+    // 信号
+    signal chartClicked(string filePath)
+
     // 主题和样式
     ThemeManager { id: theme }
     AppStyle { id: style }
@@ -45,11 +48,7 @@ Rectangle {
             spacing: style.pinItemSpacing
             clip: true
 
-            model: ListModel {
-                ListElement { name: "AD 1.1" }
-                ListElement { name: "SID 01" }
-                ListElement { name: "STAR 19" }
-            }
+            model: appController ? appController.pinModel : null
 
             delegate: Rectangle {
                 width: style.pinItemSize
@@ -80,8 +79,9 @@ Rectangle {
                     onExited: parent.hovered = false
 
                     onClicked: {
-                        parent.highlighted = !parent.highlighted
-                        console.log("点击固定航图:", model.name)
+                        console.log("[PinBar] 点击固定航图:", model.name, "路径:", model.filePath)
+                        // 发送信号打开航图
+                        chartClicked(model.filePath)
                     }
                 }
 
@@ -89,24 +89,50 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: 4
 
-                    // 缩略图占位符
+                    // 缩略图
                     Rectangle {
                         width: 50
                         height: 50
                         color: theme.background
                         radius: style.radiusSmall
                         anchors.horizontalCenter: parent.horizontalCenter
+                        clip: true
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: "📄"
-                            font.pixelSize: 24
+                        Image {
+                            id: pinThumbnailImage
+                            anchors.fill: parent
+                            anchors.margins: 2
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            cache: true
+                            asynchronous: true
+
+                            property string thumbnailPath: ""
+
+                            // 按需生成缩略图
+                            Component.onCompleted: {
+                                if (model.filePath && model.chartId && appController) {
+                                    // 调用后端生成缩略图
+                                    thumbnailPath = appController.generateThumbnail(model.filePath, model.chartId)
+                                    if (thumbnailPath) {
+                                        source = "file:///" + thumbnailPath
+                                    }
+                                }
+                            }
+
+                            // 加载失败时显示占位符
+                            Text {
+                                visible: pinThumbnailImage.status !== Image.Ready
+                                anchors.centerIn: parent
+                                text: "📄"
+                                font.pixelSize: 24
+                            }
                         }
                     }
 
                     // 航图名称
                     Text {
-                        text: model.name
+                        text: model.name || ""
                         font.pixelSize: style.fontSizeSmall
                         color: theme.textPrimary
                         elide: Text.ElideRight
@@ -137,7 +163,10 @@ Rectangle {
                         verticalAlignment: Text.AlignVCenter
                     }
                     onClicked: {
-                        console.log("删除固定航图:", model.name)
+                        console.log("[PinBar] 删除固定航图:", model.chartId)
+                        if (appController) {
+                            appController.unpinChart(model.chartId)
+                        }
                     }
                 }
 
@@ -191,7 +220,9 @@ Rectangle {
 
         // 最多10个提示
         Text {
-            text: "(最多10个)"
+            text: appController && appController.pinModel
+                  ? "(" + appController.pinModel.rowCount() + "/" + appController.pinModel.maxPins + ")"
+                  : "(0/10)"
             font.pixelSize: style.fontSizeSmall
             color: theme.textSecondary
             Layout.preferredWidth: 80

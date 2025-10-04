@@ -135,17 +135,44 @@ Rectangle {
                     anchors.margins: style.spacingMedium
                     spacing: style.spacingSmall
 
-                    // 缩略图占位符
+                    // 缩略图
                     Rectangle {
                         Layout.preferredWidth: 50
                         Layout.preferredHeight: 60
                         color: theme.divider
                         radius: style.radiusSmall
+                        clip: true
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: "📄"
-                            font.pixelSize: 24
+                        Image {
+                            id: thumbnailImage
+                            anchors.fill: parent
+                            anchors.margins: 2
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            cache: true
+                            asynchronous: true
+
+                            property string thumbnailPath: ""
+
+                            // 按需生成缩略图
+                            Component.onCompleted: {
+                                if (model.path && model.chartId && appController) {
+                                    // 调用后端生成缩略图
+                                    thumbnailPath = appController.generateThumbnail(model.path, model.chartId)
+                                    if (thumbnailPath) {
+                                        source = "file:///" + thumbnailPath
+                                    }
+                                }
+                            }
+
+                            // 加载失败时显示占位符
+                            Text {
+                                visible: thumbnailImage.status !== Image.Ready
+                                anchors.centerIn: parent
+                                text: "📄"
+                                font.pixelSize: 24
+                                color: theme.textSecondary
+                            }
                         }
                     }
 
@@ -174,12 +201,53 @@ Rectangle {
 
                     // Pin 按钮
                     Button {
-                        text: "📌"
+                        id: pinButton
+                        text: isPinnedState ? "📍" : "📌"
                         flat: true
                         implicitWidth: 40
                         implicitHeight: 40
+
+                        // 检查是否已固定
+                        property bool isPinnedState: appController && appController.pinModel
+                                                      ? appController.pinModel.isPinned(model.chartId)
+                                                      : false
+
                         onClicked: {
-                            console.log("Pin:", model.name)
+                            console.log("[ChartList] Pin 按钮点击:", model.name)
+
+                            if (!appController) {
+                                console.error("[ChartList] appController 不存在")
+                                return
+                            }
+
+                            if (isPinnedState) {
+                                // 取消固定
+                                console.log("[ChartList] 取消固定:", model.chartId)
+                                appController.unpinChart(model.chartId)
+                            } else {
+                                // 添加固定
+                                console.log("[ChartList] 添加固定:", model.chartId, model.name)
+
+                                // 构建航图数据
+                                var chartData = {
+                                    "chart_id": model.chartId,
+                                    "name": model.name,
+                                    "file_path": model.path,
+                                    "airport_code": chartList.airportCode,
+                                    "category": model.sort,
+                                    "thumbnail": "",
+                                    "pinned_at": new Date().toISOString()
+                                }
+
+                                appController.pinChart(chartData)
+                            }
+
+                            // 更新状态（触发重新检查）
+                            isPinnedState = Qt.binding(function() {
+                                return appController && appController.pinModel
+                                       ? appController.pinModel.isPinned(model.chartId)
+                                       : false
+                            })
                         }
                     }
                 }

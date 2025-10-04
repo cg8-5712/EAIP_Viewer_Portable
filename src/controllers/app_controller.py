@@ -148,6 +148,45 @@ class AppController(QObject):
             # 保存到配置
             self._savePinnedCharts()
 
+    @Slot(str, result=bool)
+    def isPinned(self, chart_id: str) -> bool:
+        """
+        检查航图是否已固定
+
+        Args:
+            chart_id: 航图ID
+
+        Returns:
+            是否已固定
+        """
+        return self._pin_model.isPinned(chart_id)
+
+    @Slot(str)
+    def openPinnedChart(self, file_path: str):
+        """
+        打开固定的航图
+
+        Args:
+            file_path: 航图文件路径
+        """
+        print(f"[AppController] 打开固定航图: {file_path}")
+        # 使用 PDF Handler 加载 PDF
+        self._pdf_handler.loadPdf(file_path)
+
+    @Slot(str, str, result=str)
+    def generateThumbnail(self, file_path: str, chart_id: str) -> str:
+        """
+        生成航图缩略图
+
+        Args:
+            file_path: 航图文件路径
+            chart_id: 航图ID
+
+        Returns:
+            缩略图文件路径
+        """
+        return self._pdf_handler.generateChartThumbnail(file_path, chart_id)
+
     def _savePinnedCharts(self):
         """保存固定航图到配置"""
         pinned_charts = self._pin_model.getPinnedCharts()

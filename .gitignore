@@ -214,3 +214,6 @@ __marimo__/
 # Local Data
 data/
 cache/
+
+# Config
+config/settings.json

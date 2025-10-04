@@ -2,7 +2,7 @@
 Pin model for managing pinned charts
 """
 
-from PySide6.QtCore import QObject, Signal, Property, QAbstractListModel, Qt
+from PySide6.QtCore import QObject, Signal, Property, Slot, QAbstractListModel, Qt
 from typing import List, Dict, Any
 
 
@@ -100,6 +100,7 @@ class PinModel(QAbstractListModel):
                 self._pinned_charts = self._pinned_charts[:value]
                 self.endRemoveRows()
 
+    @Slot(dict, result=bool)
     def pinChart(self, chart_data: Dict[str, Any]) -> bool:
         """固定航图"""
         # 检查是否已经固定
@@ -128,6 +129,7 @@ class PinModel(QAbstractListModel):
 
         return True
 
+    @Slot(str, result=bool)
     def unpinChart(self, chart_id: str) -> bool:
         """取消固定航图"""
         for i, chart in enumerate(self._pinned_charts):
@@ -138,6 +140,7 @@ class PinModel(QAbstractListModel):
                 return True
         return False
 
+    @Slot(str, result=bool)
     def isPinned(self, chart_id: str) -> bool:
         """检查航图是否已固定"""
         return any(chart.chart_id == chart_id for chart in self._pinned_charts)
