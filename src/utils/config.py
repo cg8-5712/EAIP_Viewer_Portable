@@ -238,3 +238,16 @@ class Config(QObject):
     def getCpuCount(self) -> int:
         """获取CPU线程数"""
         return os.cpu_count() or 4
+
+    @Slot(result=str)
+    def getCachePath(self) -> str:
+        """
+        获取缓存目录路径
+
+        Returns:
+            缓存目录的绝对路径
+        """
+        cache_path = Path(self.get('cache_path', './cache'))
+        # 确保缓存目录存在
+        cache_path.mkdir(parents=True, exist_ok=True)
+        return str(cache_path.resolve())

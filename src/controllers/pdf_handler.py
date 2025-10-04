@@ -5,7 +5,6 @@ PDF Handler - 处理 PDF 文件的渲染和操作
 from PySide6.QtCore import QObject, Signal, Slot, Property, QUrl
 from PySide6.QtGui import QImage, QPixmap
 from pathlib import Path
-import tempfile
 
 try:
     import pymupdf as fitz  # PyMuPDF 新版本导入方式
@@ -31,9 +30,15 @@ class PdfHandler(QObject):
         self._current_page = 0
         self._zoom_level = 1.0
         self._rotation = 0
-        self._temp_dir = Path(tempfile.gettempdir()) / "eaip_viewer"
-        self._temp_dir.mkdir(parents=True, exist_ok=True)
         self._render_counter = 0  # 渲染计数器，用于生成唯一文件名
+
+        # 从配置获取缓存路径
+        from utils.config import Config
+        config = Config()
+        cache_path_str = config.getCachePath()
+        self._temp_dir = Path(cache_path_str) / "pdf_render"
+        self._temp_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[PdfHandler] 使用缓存目录: {self._temp_dir}")
 
     @Slot(str)
     def loadPdf(self, file_path: str):
@@ -299,4 +304,41 @@ class PdfHandler(QObject):
             import traceback
             traceback.print_exc()
             print("=" * 70)
+            return ""
+
+    @Slot(str, result=str)
+    def getPdfSize(self, file_path: str) -> str:
+        """
+        获取PDF原始尺寸（第一页）
+
+        Args:
+            file_path: PDF文件路径
+
+        Returns:
+            尺寸字符串 "width,height"，失败返回空字符串
+        """
+        if fitz is None:
+            print("[ERROR] PyMuPDF 未安装")
+            return ""
+
+        try:
+            from pathlib import Path
+            pdf_path = Path(file_path)
+
+            if not pdf_path.exists():
+                print(f"[ERROR] PDF 文件不存在: {file_path}")
+                return ""
+
+            doc = fitz.open(file_path)
+            page = doc[0]
+            width = page.rect.width
+            height = page.rect.height
+            doc.close()
+
+            result = f"{width},{height}"
+            print(f"[PdfHandler] getPdfSize: {file_path} -> {result}")
+            return result
+
+        except Exception as e:
+            print(f"[ERROR] 获取PDF尺寸失败: {e}")
             return ""

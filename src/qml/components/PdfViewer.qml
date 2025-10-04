@@ -17,11 +17,11 @@ Rectangle {
     property string currentPdfPath: ""
     property real zoomLevel: 1.0
     property string renderedImagePath: ""
-    property bool autoFitOnLoad: true  // 首次加载时自动适应
+    property bool isLoadingChart: false  // 正在加载新图表，阻止缩放变化触发重新渲染
 
     // 计算适应窗口的缩放比例
-    function calculateFitZoom() {
-        if (!pdfPageImage.sourceSize.width || !pdfPageImage.sourceSize.height) {
+    function calculateFitZoom(pdfWidth, pdfHeight) {
+        if (!pdfWidth || !pdfHeight) {
             console.log("[PdfViewer] 无法计算适应缩放：PDF尺寸无效")
             return 1.0
         }
@@ -29,10 +29,6 @@ Rectangle {
         // 获取显示区域尺寸（减去一些边距）
         var viewWidth = pdfScrollView.width - 40
         var viewHeight = pdfScrollView.height - 40
-
-        // PDF原始尺寸（考虑当前zoom）
-        var pdfWidth = pdfPageImage.sourceSize.width / zoomLevel
-        var pdfHeight = pdfPageImage.sourceSize.height / zoomLevel
 
         // 计算宽度和高度的缩放比例
         var widthRatio = viewWidth / pdfWidth
@@ -59,39 +55,67 @@ Rectangle {
         console.log("[PdfViewer] 路径长度:", path ? path.length : 0)
 
         currentPdfPath = path
+        isLoadingChart = true  // 标记正在加载，阻止onZoomLevelChanged
         console.log("[PdfViewer] currentPdfPath 已设置:", currentPdfPath)
-
-        zoomLevel = 1.0
-        autoFitOnLoad = true  // 重置自动适应标志
-        console.log("[PdfViewer] zoomLevel 已重置为:", zoomLevel)
 
         // 使用 Python 后端渲染 PDF
         if (path && appController && appController.pdfHandler) {
             console.log("[PdfViewer] appController 存在:", !!appController)
             console.log("[PdfViewer] pdfHandler 存在:", !!appController.pdfHandler)
-            console.log("[PdfViewer] 调用 renderPdfToImage，路径:", path, "缩放:", zoomLevel)
 
-            renderedImagePath = appController.pdfHandler.renderPdfToImage(path, zoomLevel)
+            // 1. 先获取PDF尺寸
+            var sizeStr = appController.pdfHandler.getPdfSize(path)
+            console.log("[PdfViewer] PDF尺寸字符串:", sizeStr)
 
-            console.log("[PdfViewer] 渲染完成，图片路径:", renderedImagePath)
-            console.log("[PdfViewer] 图片路径类型:", typeof renderedImagePath)
-            console.log("[PdfViewer] 图片路径长度:", renderedImagePath ? renderedImagePath.length : 0)
+            if (sizeStr) {
+                var sizeParts = sizeStr.split(",")
+                if (sizeParts.length === 2) {
+                    var pdfWidth = parseFloat(sizeParts[0])
+                    var pdfHeight = parseFloat(sizeParts[1])
+                    console.log("[PdfViewer] PDF原始尺寸:", pdfWidth, "x", pdfHeight)
+
+                    // 2. 计算适应缩放
+                    var fitZoom = calculateFitZoom(pdfWidth, pdfHeight)
+                    console.log("[PdfViewer] 计算的适应缩放:", fitZoom)
+
+                    // 3. 直接以适应缩放渲染
+                    zoomLevel = fitZoom
+                    console.log("[PdfViewer] 设置 zoomLevel 为:", zoomLevel)
+
+                    renderedImagePath = appController.pdfHandler.renderPdfToImage(path, zoomLevel)
+                    console.log("[PdfViewer] 渲染完成，图片路径:", renderedImagePath)
+                } else {
+                    console.error("[PdfViewer] 无效的尺寸字符串格式")
+                    // 降级：使用默认缩放
+                    zoomLevel = 1.0
+                    renderedImagePath = appController.pdfHandler.renderPdfToImage(path, zoomLevel)
+                }
+            } else {
+                console.error("[PdfViewer] 无法获取PDF尺寸")
+                // 降级：使用默认缩放
+                zoomLevel = 1.0
+                renderedImagePath = appController.pdfHandler.renderPdfToImage(path, zoomLevel)
+            }
         } else {
             console.error("[PdfViewer] 无法渲染 PDF:")
             console.error("  - path:", path)
             console.error("  - appController:", !!appController)
             console.error("  - pdfHandler:", appController ? !!appController.pdfHandler : "N/A")
         }
+
+        isLoadingChart = false  // 加载完成，恢复缩放变化监听
         console.log("==========================================================")
     }
 
     // 监听缩放变化
     onZoomLevelChanged: {
         console.log("[PdfViewer] 缩放级别变化:", zoomLevel)
-        if (currentPdfPath && appController && appController.pdfHandler) {
+        if (currentPdfPath && appController && appController.pdfHandler && !isLoadingChart) {
             console.log("[PdfViewer] 重新渲染 PDF，缩放:", zoomLevel)
             renderedImagePath = appController.pdfHandler.renderPdfToImage(currentPdfPath, zoomLevel)
             console.log("[PdfViewer] 重新渲染完成，图片路径:", renderedImagePath)
+        } else if (isLoadingChart) {
+            console.log("[PdfViewer] 正在加载图表，跳过重新渲染")
         }
     }
 
@@ -144,10 +168,22 @@ Rectangle {
                     flat: true
                     onClicked: {
                         console.log("[PdfViewer] 点击适应按钮")
-                        var fitZoom = calculateFitZoom()
-                        if (fitZoom > 0) {
-                            zoomLevel = fitZoom
-                            console.log("[PdfViewer] 设置适应缩放:", fitZoom)
+
+                        // 获取PDF尺寸并重新计算适应缩放
+                        if (currentPdfPath && appController && appController.pdfHandler) {
+                            var sizeStr = appController.pdfHandler.getPdfSize(currentPdfPath)
+                            if (sizeStr) {
+                                var sizeParts = sizeStr.split(",")
+                                if (sizeParts.length === 2) {
+                                    var pdfWidth = parseFloat(sizeParts[0])
+                                    var pdfHeight = parseFloat(sizeParts[1])
+                                    var fitZoom = calculateFitZoom(pdfWidth, pdfHeight)
+                                    if (fitZoom > 0) {
+                                        zoomLevel = fitZoom
+                                        console.log("[PdfViewer] 设置适应缩放:", fitZoom)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -216,18 +252,10 @@ Rectangle {
                         cache: false
                         anchors.centerIn: renderedImagePath ? parent : undefined
 
-                        // 图片加载完成后自动适应
+                        // 图片加载完成后不再需要自动适应（已在loadChart中处理）
                         onStatusChanged: {
-                            if (status === Image.Ready && autoFitOnLoad && zoomLevel === 1.0) {
-                                console.log("[PdfViewer] 图片加载完成，自动适应窗口")
-                                autoFitOnLoad = false  // 防止重复触发
-                                Qt.callLater(function() {
-                                    var fitZoom = calculateFitZoom()
-                                    if (fitZoom > 0 && fitZoom !== 1.0) {
-                                        console.log("[PdfViewer] 自动设置适应缩放:", fitZoom)
-                                        zoomLevel = fitZoom
-                                    }
-                                })
+                            if (status === Image.Ready) {
+                                console.log("[PdfViewer] 图片加载完成")
                             }
                         }
 

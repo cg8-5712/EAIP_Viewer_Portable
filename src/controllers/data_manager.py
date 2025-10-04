@@ -409,6 +409,10 @@ class DataManager(QObject):
         from utils.config import Config
         self._config = Config()
 
+        # 获取缓存路径
+        self._cache_path = Path(self._config.getCachePath())
+        logger.info(f"使用缓存目录: {self._cache_path}")
+
         # 初始化 EAIP 处理器
         self._initialize_eaip_handler()
         logger.info("DataManager 初始化完成")
@@ -795,8 +799,8 @@ class DataManager(QObject):
             # 获取航图数据
             result = self._eaip_handler.get_chart_by_code(airport_code, chart_code)
             if isinstance(result, bytes):
-                # 如果是图片数据，需要保存到临时文件
-                temp_path = self._data_path / "cache" / f"{airport_code}_{chart_code}.png"
+                # 如果是图片数据，需要保存到缓存文件
+                temp_path = self._cache_path / f"{airport_code}_{chart_code}.png"
                 temp_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(temp_path, 'wb') as f:
                     f.write(result)
