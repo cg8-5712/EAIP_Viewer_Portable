@@ -43,7 +43,8 @@ def build():
     # Nuitka 编译参数
     args = [
         sys.executable, '-m', 'nuitka',
-        '--standalone',                    # 独立模式（多文件）
+        '--standalone',                    # 独立模式
+        '--onefile',                       # 单文件
         '--windows-console-mode=disable',  # 无控制台窗口
         '--enable-plugin=pyside6',         # PySide6 插件
         '--include-qt-plugins=qml',        # 包含 QML 插件
@@ -67,7 +68,7 @@ def build():
 
         # 性能优化
         '--lto=yes',                       # 链接时优化
-        '--jobs=10',                       # 并行编译
+        '--jobs=32',                       # 并行编译
 
         # 入口文件
         'src/main.py'

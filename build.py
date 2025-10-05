@@ -107,7 +107,7 @@ def organize_distribution():
     dist_root.mkdir(parents=True, exist_ok=True)
 
     # 1. 复制编译后的可执行文件和依赖
-    build_output = BUILD_DIR / f"{APP_NAME}.dist"
+    build_output = BUILD_DIR / "main.dist"
     if build_output.exists():
         # 复制所有文件
         for item in build_output.iterdir():
