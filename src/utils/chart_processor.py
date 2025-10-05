@@ -25,6 +25,7 @@ except ImportError:
 @dataclass
 class ChartFile:
     """航图文件数据模型"""
+
     name: str
     path: str
     chart_type: str
@@ -40,15 +41,31 @@ class ChartProcessor:
     """航图处理服务"""
 
     CHART_TYPES = [
-        "ADC", "APDC", "GMC", "DGS", "AOC", "PATC", "FDA",
-        "ATCMAS", "SID", "STAR", "WAYPOINT LIST",
-        "DATABASE CODING TABLE", "IAC", "ATCSMAC"
+        "ADC",
+        "APDC",
+        "GMC",
+        "DGS",
+        "AOC",
+        "PATC",
+        "FDA",
+        "ATCMAS",
+        "SID",
+        "STAR",
+        "WAYPOINT LIST",
+        "DATABASE CODING TABLE",
+        "IAC",
+        "ATCSMAC",
     ]
 
     SPECIAL_CHART_TYPES = ["WAYPOINT LIST", "GMC", "APDC", "DATABASE CODING TABLE"]
 
-    def __init__(self, data_path: Path, dir_name: str = "EAIP", max_workers: int = 4,
-                 progress_callback: Optional[Callable[[int, int, str], None]] = None) -> None:
+    def __init__(
+        self,
+        data_path: Path,
+        dir_name: str = "EAIP",
+        max_workers: int = 4,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    ) -> None:
         """
         初始化航图处理器
 
@@ -69,7 +86,9 @@ class ChartProcessor:
         self.ad_json_path = data_path / "Data" / "JsonPath" / "AD.JSON"
         self.enr_json_path = data_path / "Data" / "JsonPath" / "ENR.JSON"
 
-        logger.debug(f"初始化 ChartProcessor: data_path={data_path}, dir_name={dir_name}, max_workers={self.max_workers}")
+        logger.debug(
+            f"初始化 ChartProcessor: data_path={data_path}, dir_name={dir_name}, max_workers={self.max_workers}"
+        )
         logger.debug(f"Terminal 路径: {self.terminal_path}")
         logger.debug(f"ENROUTE 路径: {self.enroute_path}")
         logger.debug(f"AD.JSON 路径: {self.ad_json_path}")
@@ -194,9 +213,9 @@ class ChartProcessor:
                     logger.debug(f"跳过非机场航图: {old_path}")
                     continue
 
-                new_name = (chart["name"].replace(":", "-")
-                           .replace("/", "-")
-                           .replace("\\", "-") + ".pdf")
+                new_name = (
+                    chart["name"].replace(":", "-").replace("/", "-").replace("\\", "-") + ".pdf"
+                )
 
                 directory = self.terminal_path / icao
                 new_path = directory / new_name
@@ -246,9 +265,9 @@ class ChartProcessor:
 
                 old_path = self.data_path / chart["pdfPath"].lstrip("/")
 
-                new_name = (chart["name"].replace(":", "-")
-                           .replace("/", "-")
-                           .replace("\\", "-") + ".pdf")
+                new_name = (
+                    chart["name"].replace(":", "-").replace("/", "-").replace("\\", "-") + ".pdf"
+                )
 
                 new_path = self.enroute_path / new_name
 
@@ -327,13 +346,15 @@ class ChartProcessor:
 
             for pdf_file in root_pdfs:
                 path = pdf_file.name.replace("\\", "/")
-                index_entries.append({
-                    "id": str(chart_id),
-                    "code": "general",
-                    "name": pdf_file.name,
-                    "path": path,
-                    "sort": "general"
-                })
+                index_entries.append(
+                    {
+                        "id": str(chart_id),
+                        "code": "general",
+                        "name": pdf_file.name,
+                        "path": path,
+                        "sort": "general",
+                    }
+                )
                 chart_id += 1
 
             # 处理子文件夹中的PDF文件
@@ -351,13 +372,15 @@ class ChartProcessor:
                     if f"{airport_name}-" in code:
                         code = code.split(f"{airport_name}-")[-1]
 
-                    index_entries.append({
-                        "id": str(chart_id),
-                        "code": code.strip(),
-                        "name": pdf_file.name,
-                        "path": path,
-                        "sort": folder.name
-                    })
+                    index_entries.append(
+                        {
+                            "id": str(chart_id),
+                            "code": code.strip(),
+                            "name": pdf_file.name,
+                            "path": path,
+                            "sort": folder.name,
+                        }
+                    )
                     chart_id += 1
 
             # 保存索引文件
@@ -385,7 +408,10 @@ class ChartProcessor:
                 # 使用线程池并行处理机场索引
                 with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                     logger.info(f"使用 {self.max_workers} 个线程并行生成机场索引")
-                    futures = [executor.submit(self._generate_airport_index, airport) for airport in airports]
+                    futures = [
+                        executor.submit(self._generate_airport_index, airport)
+                        for airport in airports
+                    ]
 
                     total_charts = 0
                     completed_count = 0
@@ -397,7 +423,9 @@ class ChartProcessor:
 
                         # 报告进度
                         if self.progress_callback:
-                            self.progress_callback(completed_count, total_airports, f"生成索引: {airport_name}")
+                            self.progress_callback(
+                                completed_count, total_airports, f"生成索引: {airport_name}"
+                            )
 
                 logger.info(f"所有机场索引生成完成，总图表数: {total_charts}")
             else:
@@ -414,13 +442,15 @@ class ChartProcessor:
                 logger.debug(f"  航路图 PDF: {len(enroute_pdfs)} 个")
 
                 for pdf_file in enroute_pdfs:
-                    index_entries.append({
-                        "id": str(chart_id),
-                        "code": "enroute",
-                        "name": pdf_file.name,
-                        "path": pdf_file.name.replace("\\", "/"),
-                        "sort": "enroute"
-                    })
+                    index_entries.append(
+                        {
+                            "id": str(chart_id),
+                            "code": "enroute",
+                            "name": pdf_file.name,
+                            "path": pdf_file.name.replace("\\", "/"),
+                            "sort": "enroute",
+                        }
+                    )
                     chart_id += 1
 
                 # 保存航路图索引文件

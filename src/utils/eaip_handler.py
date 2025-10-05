@@ -56,8 +56,7 @@ class EaipHandler:
             all_dirs = list(target_path.iterdir())
             logger.debug(f"Data 目录下共有 {len(all_dirs)} 个项目")
 
-            eaip_dirs = [d for d in all_dirs
-                        if d.is_dir() and d.name.startswith("EAIP")]
+            eaip_dirs = [d for d in all_dirs if d.is_dir() and d.name.startswith("EAIP")]
 
             logger.debug(f"找到 {len(eaip_dirs)} 个 EAIP 文件夹")
             if eaip_dirs:
@@ -97,16 +96,10 @@ class EaipHandler:
 
             # 检查路径是否存在
             if not self.base_path.exists():
-                return {
-                    "success": False,
-                    "message": f"数据目录不存在: {self.base_path}"
-                }
+                return {"success": False, "message": f"数据目录不存在: {self.base_path}"}
 
             if not self.terminal_path.exists():
-                return {
-                    "success": False,
-                    "message": f"Terminal 目录不存在: {self.terminal_path}"
-                }
+                return {"success": False, "message": f"Terminal 目录不存在: {self.terminal_path}"}
 
             # 检查是否需要生成索引
             need_update = False
@@ -135,10 +128,7 @@ class EaipHandler:
                         charts = json.load(f)
                         chart_count = len(charts)
                         total_charts += chart_count
-                        airport_info.append({
-                            "icao": airport.name,
-                            "charts": chart_count
-                        })
+                        airport_info.append({"icao": airport.name, "charts": chart_count})
 
             return {
                 "success": True,
@@ -146,18 +136,16 @@ class EaipHandler:
                 "dir_name": self.dir_name,
                 "total_airports": len(airports),
                 "total_charts": total_charts,
-                "airports": airport_info
+                "airports": airport_info,
             }
 
         except Exception as e:
             print(f"[ERROR] 更新周期失败: {e}")
-            return {
-                "success": False,
-                "message": f"更新失败: {e}"
-            }
+            return {"success": False, "message": f"更新失败: {e}"}
 
-    def get_chart_list(self, icao: str, search_type: str = None,
-                      code: str = None, filename: str = None) -> Optional[List[Dict]]:
+    def get_chart_list(
+        self, icao: str, search_type: str = None, code: str = None, filename: str = None
+    ) -> Optional[List[Dict]]:
         """
         获取航图列表
 
@@ -293,7 +281,7 @@ class EaipHandler:
             # 如果 ≥3 页，直接返回 PDF
             if len(doc) >= 3:
                 doc.close()
-                with open(pdf_path, 'rb') as f:
+                with open(pdf_path, "rb") as f:
                     return f.read()
 
             # <3 页时，将每页渲染为图片并拼接

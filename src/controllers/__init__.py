@@ -6,4 +6,4 @@ from .app_controller import AppController
 from .data_manager import DataManager
 from .pdf_handler import PdfHandler
 
-__all__ = ['AppController', 'DataManager', 'PdfHandler']
+__all__ = ["AppController", "DataManager", "PdfHandler"]

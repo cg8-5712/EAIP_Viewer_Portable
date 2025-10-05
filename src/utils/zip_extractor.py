@@ -17,8 +17,13 @@ class ZipExtractor:
     def __init__(self):
         pass
 
-    def extract(self, zip_path: str, extract_to: str, password: Optional[str] = None,
-                progress_callback: Optional[Callable[[int, int], None]] = None) -> bool:
+    def extract(
+        self,
+        zip_path: str,
+        extract_to: str,
+        password: Optional[str] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+    ) -> bool:
         """
         解压 ZIP 文件
 
@@ -50,9 +55,9 @@ class ZipExtractor:
             extract_path.mkdir(parents=True, exist_ok=True)
             logger.debug(f"创建解压目录: {extract_path}")
 
-            with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
                 if password:
-                    zip_ref.setpassword(password.encode('utf-8'))
+                    zip_ref.setpassword(password.encode("utf-8"))
 
                 # 获取文件列表
                 file_list = zip_ref.namelist()
@@ -123,7 +128,7 @@ class ZipExtractor:
             文件列表
         """
         try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 return zip_ref.namelist()
         except Exception as e:
             print(f"读取 ZIP 文件失败: {e}")
@@ -140,7 +145,7 @@ class ZipExtractor:
             是否有效
         """
         try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 # 尝试读取文件列表
                 zip_ref.namelist()
                 return True

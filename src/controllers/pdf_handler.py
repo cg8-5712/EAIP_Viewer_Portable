@@ -34,6 +34,7 @@ class PdfHandler(QObject):
 
         # 从配置获取缓存路径
         from utils.config import Config
+
         config = Config()
         cache_path_str = config.getCachePath()
         self._temp_dir = Path(cache_path_str) / "pdf_render"
@@ -195,7 +196,7 @@ class PdfHandler(QObject):
             img = QImage(img_data, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
 
             # 保存缩略图
-            thumbnail_path = Path(file_path).with_suffix('.thumb.png')
+            thumbnail_path = Path(file_path).with_suffix(".thumb.png")
             img.save(str(thumbnail_path))
 
             doc.close()
@@ -247,6 +248,7 @@ class PdfHandler(QObject):
 
         try:
             from pathlib import Path
+
             pdf_path = Path(file_path)
             print(f"[PdfHandler] 转换为 Path: {pdf_path}")
             print(f"[PdfHandler] 文件存在: {pdf_path.exists()}")
@@ -278,6 +280,7 @@ class PdfHandler(QObject):
             # 转换为 QImage
             img_data = pix.samples
             from PySide6.QtGui import QImage
+
             img = QImage(img_data, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
             print(f"[PdfHandler] QImage 创建成功")
             print(f"[PdfHandler] QImage 尺寸: {img.width()} x {img.height()}")
@@ -307,6 +310,7 @@ class PdfHandler(QObject):
         except Exception as e:
             print(f"[ERROR] 渲染 PDF 失败: {e}")
             import traceback
+
             traceback.print_exc()
             print("=" * 70)
             return ""
@@ -328,6 +332,7 @@ class PdfHandler(QObject):
 
         try:
             from pathlib import Path
+
             pdf_path = Path(file_path)
 
             if not pdf_path.exists():
@@ -413,5 +418,6 @@ class PdfHandler(QObject):
         except Exception as e:
             print(f"[ERROR] 生成缩略图失败: {e}")
             import traceback
+
             traceback.print_exc()
             return ""

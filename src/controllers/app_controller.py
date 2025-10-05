@@ -36,7 +36,7 @@ class AppController(QObject):
         # 数据模型
         self._airport_model = AirportModel(self)
         self._chart_model = ChartModel(self)
-        self._pin_model = PinModel(max_pins=self._config.get('max_pins', 10), parent=self)
+        self._pin_model = PinModel(max_pins=self._config.get("max_pins", 10), parent=self)
 
         # 当前状态
         self._current_view = "airportList"  # 当前视图
@@ -66,7 +66,7 @@ class AppController(QObject):
         self._data_manager.loadSavedAirports()
 
         # 加载保存的固定航图
-        pinned_charts = self._config.get('pinned_charts', [])
+        pinned_charts = self._config.get("pinned_charts", [])
         self._pin_model.loadPinnedCharts(pinned_charts)
 
         logger.info("应用初始化完成")
@@ -190,7 +190,7 @@ class AppController(QObject):
     def _savePinnedCharts(self):
         """保存固定航图到配置"""
         pinned_charts = self._pin_model.getPinnedCharts()
-        self._config.set('pinned_charts', pinned_charts)
+        self._config.set("pinned_charts", pinned_charts)
         self._config.save()
 
     @Slot()

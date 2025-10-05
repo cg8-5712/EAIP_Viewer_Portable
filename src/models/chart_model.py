@@ -14,9 +14,9 @@ class Chart:
         self.name = name  # 航图名称，如 "AD 1.1"
         self.category = category  # 分类，如 "AD", "SID", "STAR"
         self.file_path = file_path  # PDF 文件路径
-        self.airport_code = kwargs.get('airport_code', '')  # 所属机场代码
-        self.thumbnail = kwargs.get('thumbnail', '')  # 缩略图路径
-        self.metadata = kwargs.get('metadata', {})  # 其他元数据
+        self.airport_code = kwargs.get("airport_code", "")  # 所属机场代码
+        self.thumbnail = kwargs.get("thumbnail", "")  # 缩略图路径
+        self.metadata = kwargs.get("metadata", {})  # 其他元数据
 
     def __repr__(self):
         return f"Chart({self.chart_id}, {self.name}, {self.category})"
@@ -62,12 +62,12 @@ class ChartModel(QAbstractListModel):
 
     def roleNames(self):
         return {
-            self.ChartIdRole: b'chartId',
-            self.NameRole: b'name',
-            self.CategoryRole: b'category',
-            self.FilePathRole: b'filePath',
-            self.AirportCodeRole: b'airportCode',
-            self.ThumbnailRole: b'thumbnail'
+            self.ChartIdRole: b"chartId",
+            self.NameRole: b"name",
+            self.CategoryRole: b"category",
+            self.FilePathRole: b"filePath",
+            self.AirportCodeRole: b"airportCode",
+            self.ThumbnailRole: b"thumbnail",
         }
 
     def addChart(self, chart: Chart):
@@ -82,13 +82,13 @@ class ChartModel(QAbstractListModel):
         self._charts.clear()
         for data in charts_data:
             chart = Chart(
-                chart_id=data.get('chart_id', ''),
-                name=data.get('name', ''),
-                category=data.get('category', ''),
-                file_path=data.get('file_path', ''),
-                airport_code=data.get('airport_code', ''),
-                thumbnail=data.get('thumbnail', ''),
-                metadata=data.get('metadata', {})
+                chart_id=data.get("chart_id", ""),
+                name=data.get("name", ""),
+                category=data.get("category", ""),
+                file_path=data.get("file_path", ""),
+                airport_code=data.get("airport_code", ""),
+                thumbnail=data.get("thumbnail", ""),
+                metadata=data.get("metadata", {}),
             )
             self._charts.append(chart)
         self.endResetModel()

@@ -13,10 +13,10 @@ class PinnedChart:
         self.chart_id = chart_id  # 航图ID
         self.name = name  # 航图名称
         self.file_path = file_path  # PDF 文件路径
-        self.airport_code = kwargs.get('airport_code', '')  # 所属机场代码
-        self.category = kwargs.get('category', '')  # 分类
-        self.thumbnail = kwargs.get('thumbnail', '')  # 缩略图路径
-        self.pinned_at = kwargs.get('pinned_at', '')  # 固定时间
+        self.airport_code = kwargs.get("airport_code", "")  # 所属机场代码
+        self.category = kwargs.get("category", "")  # 分类
+        self.thumbnail = kwargs.get("thumbnail", "")  # 缩略图路径
+        self.pinned_at = kwargs.get("pinned_at", "")  # 固定时间
 
     def __repr__(self):
         return f"PinnedChart({self.chart_id}, {self.name})"
@@ -24,13 +24,13 @@ class PinnedChart:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典，用于保存"""
         return {
-            'chart_id': self.chart_id,
-            'name': self.name,
-            'file_path': self.file_path,
-            'airport_code': self.airport_code,
-            'category': self.category,
-            'thumbnail': self.thumbnail,
-            'pinned_at': self.pinned_at
+            "chart_id": self.chart_id,
+            "name": self.name,
+            "file_path": self.file_path,
+            "airport_code": self.airport_code,
+            "category": self.category,
+            "thumbnail": self.thumbnail,
+            "pinned_at": self.pinned_at,
         }
 
 
@@ -77,12 +77,12 @@ class PinModel(QAbstractListModel):
 
     def roleNames(self):
         return {
-            self.ChartIdRole: b'chartId',
-            self.NameRole: b'name',
-            self.FilePathRole: b'filePath',
-            self.AirportCodeRole: b'airportCode',
-            self.CategoryRole: b'category',
-            self.ThumbnailRole: b'thumbnail'
+            self.ChartIdRole: b"chartId",
+            self.NameRole: b"name",
+            self.FilePathRole: b"filePath",
+            self.AirportCodeRole: b"airportCode",
+            self.CategoryRole: b"category",
+            self.ThumbnailRole: b"thumbnail",
         }
 
     @Property(int, notify=maxPinsChanged)
@@ -105,7 +105,7 @@ class PinModel(QAbstractListModel):
         """固定航图"""
         # 检查是否已经固定
         for chart in self._pinned_charts:
-            if chart.chart_id == chart_data.get('chart_id'):
+            if chart.chart_id == chart_data.get("chart_id"):
                 return False
 
         # 检查是否达到最大数量
@@ -114,16 +114,18 @@ class PinModel(QAbstractListModel):
 
         # 添加新的固定航图
         pinned_chart = PinnedChart(
-            chart_id=chart_data.get('chart_id', ''),
-            name=chart_data.get('name', ''),
-            file_path=chart_data.get('file_path', ''),
-            airport_code=chart_data.get('airport_code', ''),
-            category=chart_data.get('category', ''),
-            thumbnail=chart_data.get('thumbnail', ''),
-            pinned_at=chart_data.get('pinned_at', '')
+            chart_id=chart_data.get("chart_id", ""),
+            name=chart_data.get("name", ""),
+            file_path=chart_data.get("file_path", ""),
+            airport_code=chart_data.get("airport_code", ""),
+            category=chart_data.get("category", ""),
+            thumbnail=chart_data.get("thumbnail", ""),
+            pinned_at=chart_data.get("pinned_at", ""),
         )
 
-        self.beginInsertRows(self.index(len(self._pinned_charts)), len(self._pinned_charts), len(self._pinned_charts))
+        self.beginInsertRows(
+            self.index(len(self._pinned_charts)), len(self._pinned_charts), len(self._pinned_charts)
+        )
         self._pinned_charts.append(pinned_chart)
         self.endInsertRows()
 
@@ -153,15 +155,15 @@ class PinModel(QAbstractListModel):
         """从数据字典列表加载固定航图"""
         self.beginResetModel()
         self._pinned_charts.clear()
-        for data in charts_data[:self._max_pins]:  # 限制最大数量
+        for data in charts_data[: self._max_pins]:  # 限制最大数量
             chart = PinnedChart(
-                chart_id=data.get('chart_id', ''),
-                name=data.get('name', ''),
-                file_path=data.get('file_path', ''),
-                airport_code=data.get('airport_code', ''),
-                category=data.get('category', ''),
-                thumbnail=data.get('thumbnail', ''),
-                pinned_at=data.get('pinned_at', '')
+                chart_id=data.get("chart_id", ""),
+                name=data.get("name", ""),
+                file_path=data.get("file_path", ""),
+                airport_code=data.get("airport_code", ""),
+                category=data.get("category", ""),
+                thumbnail=data.get("thumbnail", ""),
+                pinned_at=data.get("pinned_at", ""),
             )
             self._pinned_charts.append(chart)
         self.endResetModel()

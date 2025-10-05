@@ -18,7 +18,7 @@ def get_app_root() -> Path:
         - 打包环境: 返回可执行文件所在目录
         - 开发环境: 返回项目根目录
     """
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # 打包环境：使用可执行文件所在目录
         app_root = Path(sys.executable).parent
     else:

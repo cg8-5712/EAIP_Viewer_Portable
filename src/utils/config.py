@@ -22,18 +22,12 @@ class Config(QObject):
         "max_pins": 10,
         "pdf_render_dpi": 150,
         "language": "zh_CN",
-        "theme": {
-            "mode": "light",
-            "accent_color": "aviation_blue"
-        },
-        "splash_screen": {
-            "enabled": True,
-            "min_display_time": 1500
-        },
+        "theme": {"mode": "light", "accent_color": "aviation_blue"},
+        "splash_screen": {"enabled": True, "min_display_time": 1500},
         "import": {
             "max_workers": "auto",  # "auto" 或具体数字
-            "auto_workers_ratio": 0.5  # 自动模式下使用 CPU 线程数的比例（默认50%）
-        }
+            "auto_workers_ratio": 0.5,  # 自动模式下使用 CPU 线程数的比例（默认50%）
+        },
     }
 
     def __init__(self, config_file: str = "./config/settings.json", parent=None):
@@ -50,7 +44,7 @@ class Config(QObject):
         """从文件加载配置"""
         if self._config_file.exists():
             try:
-                with open(self._config_file, 'r', encoding='utf-8') as f:
+                with open(self._config_file, "r", encoding="utf-8") as f:
                     self._config = json.load(f)
                     # 合并默认配置（处理新增的配置项）
                     self._config = self._merge_config(self.DEFAULT_CONFIG, self._config)
@@ -69,7 +63,7 @@ class Config(QObject):
             # 确保目录存在
             self._config_file.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(self._config_file, 'w', encoding='utf-8') as f:
+            with open(self._config_file, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, ensure_ascii=False, indent=2)
 
         except Exception as e:
@@ -105,7 +99,7 @@ class Config(QObject):
         Returns:
             配置值
         """
-        keys = key.split('.')
+        keys = key.split(".")
         value = self._config
 
         for k in keys:
@@ -124,7 +118,7 @@ class Config(QObject):
             key: 配置键（支持点号分隔的嵌套键）
             value: 配置值
         """
-        keys = key.split('.')
+        keys = key.split(".")
         config = self._config
 
         # 遍历到倒数第二层
@@ -145,47 +139,47 @@ class Config(QObject):
     # QML 属性
     @Property(str)
     def language(self):
-        return self.get('language', 'zh_CN')
+        return self.get("language", "zh_CN")
 
     @language.setter
     def language(self, value: str):
-        self.set('language', value)
+        self.set("language", value)
         self.save()
 
     @Property(str)
     def themeMode(self):
-        return self.get('theme.mode', 'light')
+        return self.get("theme.mode", "light")
 
     @themeMode.setter
     def themeMode(self, value: str):
-        self.set('theme.mode', value)
+        self.set("theme.mode", value)
         self.save()
 
     @Property(str)
     def accentColor(self):
-        return self.get('theme.accent_color', 'aviation_blue')
+        return self.get("theme.accent_color", "aviation_blue")
 
     @accentColor.setter
     def accentColor(self, value: str):
-        self.set('theme.accent_color', value)
+        self.set("theme.accent_color", value)
         self.save()
 
     @Property(int)
     def maxPins(self):
-        return self.get('max_pins', 10)
+        return self.get("max_pins", 10)
 
     @maxPins.setter
     def maxPins(self, value: int):
-        self.set('max_pins', value)
+        self.set("max_pins", value)
         self.save()
 
     @Property(bool)
     def splashScreenEnabled(self):
-        return self.get('splash_screen.enabled', True)
+        return self.get("splash_screen.enabled", True)
 
     @splashScreenEnabled.setter
     def splashScreenEnabled(self, value: bool):
-        self.set('splash_screen.enabled', value)
+        self.set("splash_screen.enabled", value)
         self.save()
 
     @Slot(result=int)
@@ -199,11 +193,11 @@ class Config(QObject):
         cpu_count = os.cpu_count() or 4  # 默认 4 核
         max_allowed = int(cpu_count * 0.7)  # 最多70%
 
-        max_workers = self.get('import.max_workers', 'auto')
+        max_workers = self.get("import.max_workers", "auto")
 
-        if max_workers == 'auto':
+        if max_workers == "auto":
             # 自动模式：使用配置的比例
-            ratio = self.get('import.auto_workers_ratio', 0.5)
+            ratio = self.get("import.auto_workers_ratio", 0.5)
             workers = max(1, int(cpu_count * ratio))
         else:
             # 手动设置
@@ -224,13 +218,13 @@ class Config(QObject):
             workers: 工作线程数，0 表示自动
         """
         if workers == 0:
-            self.set('import.max_workers', 'auto')
+            self.set("import.max_workers", "auto")
         else:
             cpu_count = os.cpu_count() or 4
             max_allowed = int(cpu_count * 0.7)
             workers = min(workers, max_allowed)
             workers = max(1, workers)
-            self.set('import.max_workers', workers)
+            self.set("import.max_workers", workers)
         self.save()
 
     @Slot(result=int)
@@ -252,7 +246,7 @@ class Config(QObject):
         Returns:
             缓存目录的绝对路径
         """
-        cache_path_config = self.get('cache_path', './cache')
+        cache_path_config = self.get("cache_path", "./cache")
         cache_path = resolve_relative_path(cache_path_config)
         # 确保缓存目录存在
         cache_path.mkdir(parents=True, exist_ok=True)

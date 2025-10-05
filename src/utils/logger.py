@@ -38,10 +38,7 @@ class Logger:
 
         # 文件处理器（支持轮转，最大 10MB，保留 5 个备份）
         file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=10*1024*1024,
-            backupCount=5,
-            encoding='utf-8'
+            log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
         )
         file_handler.setLevel(level)
 
@@ -51,8 +48,7 @@ class Logger:
 
         # 日志格式
         formatter = logging.Formatter(
-            '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
 
         file_handler.setFormatter(formatter)

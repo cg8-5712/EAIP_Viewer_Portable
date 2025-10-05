@@ -18,11 +18,21 @@ class ImportWorker(QThread):
     """导入工作线程"""
 
     # 信号定义
-    progressUpdate = Signal(int, int, int, str, str)  # 当前步骤, 总步骤数, 进度%, 步骤名称, 任务详情
+    progressUpdate = Signal(
+        int, int, int, str, str
+    )  # 当前步骤, 总步骤数, 进度%, 步骤名称, 任务详情
     importFinished = Signal(bool, str, list, int)  # 成功/失败, 消息, 机场数据, 航路图数量
 
-    def __init__(self, zip_path: str, data_path: Path, extractor: ZipExtractor,
-                 airac_period: str, dir_name: str, max_workers: int = 4, parent=None):
+    def __init__(
+        self,
+        zip_path: str,
+        data_path: Path,
+        extractor: ZipExtractor,
+        airac_period: str,
+        dir_name: str,
+        max_workers: int = 4,
+        parent=None,
+    ):
         super().__init__(parent)
         self.zip_path = zip_path
         self.data_path = data_path
@@ -40,15 +50,21 @@ class ImportWorker(QThread):
         try:
             # 1. 解压文件
             logger.debug("解压文件中...")
-            self.progressUpdate.emit(1, total_steps, 0, "解压", f"开始解压: {Path(self.zip_path).name}")
+            self.progressUpdate.emit(
+                1, total_steps, 0, "解压", f"开始解压: {Path(self.zip_path).name}"
+            )
 
             def extract_progress(current, total):
                 """解压进度回调"""
                 percent = int((current / total) * 100) if total > 0 else 0
-                self.progressUpdate.emit(1, total_steps, percent, "解压", f"解压中: {current}/{total} 个文件")
+                self.progressUpdate.emit(
+                    1, total_steps, percent, "解压", f"解压中: {current}/{total} 个文件"
+                )
 
             try:
-                self.extractor.extract(self.zip_path, str(temp_extract_path), progress_callback=extract_progress)
+                self.extractor.extract(
+                    self.zip_path, str(temp_extract_path), progress_callback=extract_progress
+                )
                 self.progressUpdate.emit(1, total_steps, 100, "解压", "解压完成")
                 logger.info(f"文件解压完成: {temp_extract_path}")
             except FileNotFoundError as e:
@@ -102,17 +118,23 @@ class ImportWorker(QThread):
                 return
 
             logger.info(f"检测到根文件夹: {root_folder.name}")
-            self.progressUpdate.emit(2, total_steps, 50, "检测数据结构", f"找到根文件夹: {root_folder.name}")
+            self.progressUpdate.emit(
+                2, total_steps, 50, "检测数据结构", f"找到根文件夹: {root_folder.name}"
+            )
 
             # 提取 AIRAC 周期
             detected_period = self._extract_airac_period(root_folder.name)
             if detected_period:
                 logger.info(f"从文件夹名检测到 AIRAC 周期: {detected_period}")
                 self.airac_period = detected_period
-                self.progressUpdate.emit(2, total_steps, 70, "检测数据结构", f"检测到 AIRAC 周期: {detected_period}")
+                self.progressUpdate.emit(
+                    2, total_steps, 70, "检测数据结构", f"检测到 AIRAC 周期: {detected_period}"
+                )
             else:
                 logger.warning(f"无法从文件夹名 {root_folder.name} 提取 AIRAC 周期，使用默认值")
-                self.progressUpdate.emit(2, total_steps, 70, "检测数据结构", f"使用默认 AIRAC 周期: {self.airac_period}")
+                self.progressUpdate.emit(
+                    2, total_steps, 70, "检测数据结构", f"使用默认 AIRAC 周期: {self.airac_period}"
+                )
 
             # 移动到最终位置
             final_path = self.data_path / self.airac_period
@@ -121,9 +143,12 @@ class ImportWorker(QThread):
             if final_path.exists():
                 logger.warning(f"目标路径已存在，将被覆盖: {final_path}")
                 import shutil
+
                 shutil.rmtree(final_path)
 
-            self.progressUpdate.emit(2, total_steps, 85, "检测数据结构", f"移动数据到: {final_path.name}")
+            self.progressUpdate.emit(
+                2, total_steps, 85, "检测数据结构", f"移动数据到: {final_path.name}"
+            )
             root_folder.rename(final_path)
             logger.info(f"数据已移动到: {final_path}")
 
@@ -136,6 +161,7 @@ class ImportWorker(QThread):
 
             # 自动检测 EAIP 目录名
             from utils.eaip_handler import EaipHandler
+
             self.eaip_handler = EaipHandler(self.data_path, self.airac_period, self.dir_name)
             self.eaip_handler.base_path = final_path
             self.progressUpdate.emit(3, total_steps, 30, "处理航图数据", "检测 EAIP 目录结构")
@@ -146,9 +172,13 @@ class ImportWorker(QThread):
                 self.dir_name = detected_dir
                 self.eaip_handler.dir_name = detected_dir
                 self.eaip_handler.terminal_path = final_path / "Data" / detected_dir / "Terminal"
-                self.progressUpdate.emit(3, total_steps, 100, "处理航图数据", f"检测到 EAIP 目录: {detected_dir}")
+                self.progressUpdate.emit(
+                    3, total_steps, 100, "处理航图数据", f"检测到 EAIP 目录: {detected_dir}"
+                )
             else:
-                self.progressUpdate.emit(3, total_steps, 100, "处理航图数据", f"使用默认 EAIP 目录: {self.dir_name}")
+                self.progressUpdate.emit(
+                    3, total_steps, 100, "处理航图数据", f"使用默认 EAIP 目录: {self.dir_name}"
+                )
 
             # 4. 使用 ChartProcessor 处理数据
             logger.debug("重命名和分类航图...")
@@ -157,10 +187,16 @@ class ImportWorker(QThread):
             def rename_progress(current, total, desc):
                 """重命名进度回调"""
                 percent = int((current / total) * 100) if total > 0 else 0
-                self.progressUpdate.emit(4, total_steps, percent, "重命名航图", f"{desc} ({current}/{total})")
+                self.progressUpdate.emit(
+                    4, total_steps, percent, "重命名航图", f"{desc} ({current}/{total})"
+                )
 
-            processor = ChartProcessor(final_path, self.dir_name, max_workers=self.max_workers,
-                                      progress_callback=rename_progress)
+            processor = ChartProcessor(
+                final_path,
+                self.dir_name,
+                max_workers=self.max_workers,
+                progress_callback=rename_progress,
+            )
             processor.process(["rename"])
             self.progressUpdate.emit(4, total_steps, 50, "重命名航图", "分类整理航图...")
             processor.process(["organize"])
@@ -169,12 +205,16 @@ class ImportWorker(QThread):
 
             # 5. 生成索引
             logger.debug("生成索引...")
-            self.progressUpdate.emit(5, total_steps, 0, "生成索引", f"使用 {self.max_workers} 个线程并行生成")
+            self.progressUpdate.emit(
+                5, total_steps, 0, "生成索引", f"使用 {self.max_workers} 个线程并行生成"
+            )
 
             def index_progress(current, total, desc):
                 """索引生成进度回调"""
                 percent = int((current / total) * 100) if total > 0 else 0
-                self.progressUpdate.emit(5, total_steps, percent, "生成索引", f"{desc} ({current}/{total})")
+                self.progressUpdate.emit(
+                    5, total_steps, percent, "生成索引", f"{desc} ({current}/{total})"
+                )
 
             processor.progress_callback = index_progress
             processor.process(["index"])
@@ -193,7 +233,13 @@ class ImportWorker(QThread):
             self.progressUpdate.emit(6, total_steps, 80, "整理数据", "加载航路图信息")
             enroute_count = self._getEnrouteChartCount(final_path)
 
-            self.progressUpdate.emit(6, total_steps, 100, "整理数据", f"加载完成: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
+            self.progressUpdate.emit(
+                6,
+                total_steps,
+                100,
+                "整理数据",
+                f"加载完成: {len(airports_data)} 个机场 + {enroute_count} 个航路图",
+            )
 
             logger.info(f"数据导入成功: {len(airports_data)} 个机场 + {enroute_count} 个航路图")
             success_msg = f"✅ 成功导入 {len(airports_data)} 个机场 + {enroute_count} 个航路图\n\nAIRAC 周期: {self.airac_period}"
@@ -266,7 +312,8 @@ class ImportWorker(QThread):
     def _extract_airac_period(self, folder_name: str) -> Optional[str]:
         """从文件夹名提取 AIRAC 周期"""
         import re
-        match = re.search(r'(\d{4})-(\d{1,2})', folder_name)
+
+        match = re.search(r"(\d{4})-(\d{1,2})", folder_name)
         if match:
             year = match.group(1)
             month = match.group(2).zfill(2)
@@ -274,7 +321,7 @@ class ImportWorker(QThread):
             logger.debug(f"从 {folder_name} 提取周期: {period}")
             return period
 
-        match = re.search(r'(\d{4})', folder_name)
+        match = re.search(r"(\d{4})", folder_name)
         if match and len(match.group(1)) == 4:
             period = match.group(1)
             logger.debug(f"从 {folder_name} 提取周期: {period}")
@@ -289,6 +336,7 @@ class ImportWorker(QThread):
             logger.debug(f"清理临时目录: {temp_path}")
             try:
                 import shutil
+
                 shutil.rmtree(temp_path)
                 logger.info("临时目录清理完成")
             except Exception as e:
@@ -335,13 +383,15 @@ class ImportWorker(QThread):
             else:
                 logger.warning(f"  {icao}: 索引文件不存在")
 
-            airports.append({
-                'code': icao,
-                'name_zh': f'{icao} 机场',
-                'name_en': f'{icao} Airport',
-                'categories': categories,
-                'chart_count': chart_count
-            })
+            airports.append(
+                {
+                    "code": icao,
+                    "name_zh": f"{icao} 机场",
+                    "name_en": f"{icao} Airport",
+                    "categories": categories,
+                    "chart_count": chart_count,
+                }
+            )
 
         enroute_count = 0
         enroute_path = data_path / "ENROUTE"  # 更新后的路径
@@ -390,7 +440,9 @@ class DataManager(QObject):
 
     # 信号定义
     dataImportStarted = Signal()
-    dataImportProgress = Signal(int, int, int, str, str)  # 当前步骤, 总步骤数, 进度%, 步骤名称, 任务详情
+    dataImportProgress = Signal(
+        int, int, int, str, str
+    )  # 当前步骤, 总步骤数, 进度%, 步骤名称, 任务详情
     dataImportCompleted = Signal(bool, str)  # 成功/失败, 消息
     airportsLoaded = Signal(list)  # 机场数据加载完成
     periodUpdated = Signal(dict)  # AIRAC 周期更新完成
@@ -407,6 +459,7 @@ class DataManager(QObject):
 
         # 导入配置
         from utils.config import Config
+
         self._config = Config()
 
         # 获取缓存路径
@@ -421,11 +474,7 @@ class DataManager(QObject):
         """初始化 EAIP 处理器"""
         try:
             logger.debug(f"初始化 EAIP 处理器: period={self._airac_period}, dir={self._dir_name}")
-            self._eaip_handler = EaipHandler(
-                self._data_path,
-                self._airac_period,
-                self._dir_name
-            )
+            self._eaip_handler = EaipHandler(self._data_path, self._airac_period, self._dir_name)
             logger.info("EAIP 处理器初始化成功")
         except Exception as e:
             logger.warning(f"EAIP 处理器初始化失败: {e}")
@@ -460,7 +509,7 @@ class DataManager(QObject):
             self._airac_period,
             self._dir_name,
             max_workers,
-            self
+            self,
         )
 
         # 连接信号
@@ -471,13 +520,16 @@ class DataManager(QObject):
         self._import_worker.start()
 
     @Slot(int, int, int, str, str)
-    def _onProgressUpdate(self, current_step: int, total_steps: int, progress: int,
-                         step_name: str, task_detail: str):
+    def _onProgressUpdate(
+        self, current_step: int, total_steps: int, progress: int, step_name: str, task_detail: str
+    ):
         """进度更新"""
         self.dataImportProgress.emit(current_step, total_steps, progress, step_name, task_detail)
 
     @Slot(bool, str, list, int)
-    def _onImportFinished(self, success: bool, message: str, airports_data: list, enroute_count: int):
+    def _onImportFinished(
+        self, success: bool, message: str, airports_data: list, enroute_count: int
+    ):
         """导入完成"""
         if success:
             # 更新 AIRAC 周期和目录名
@@ -512,7 +564,7 @@ class DataManager(QObject):
         import re
 
         # 尝试匹配 YYYY-MM 格式
-        match = re.search(r'(\d{4})-(\d{1,2})', folder_name)
+        match = re.search(r"(\d{4})-(\d{1,2})", folder_name)
         if match:
             year = match.group(1)
             month = match.group(2).zfill(2)
@@ -522,7 +574,7 @@ class DataManager(QObject):
             return period
 
         # 尝试匹配 YYMM 格式
-        match = re.search(r'(\d{4})', folder_name)
+        match = re.search(r"(\d{4})", folder_name)
         if match and len(match.group(1)) == 4:
             period = match.group(1)
             logger.debug(f"从 {folder_name} 提取周期: {period}")
@@ -537,6 +589,7 @@ class DataManager(QObject):
             logger.debug(f"清理临时目录: {temp_path}")
             try:
                 import shutil
+
                 shutil.rmtree(temp_path)
                 logger.info("临时目录清理完成")
             except Exception as e:
@@ -646,13 +699,15 @@ class DataManager(QObject):
             else:
                 logger.warning(f"  {icao}: 索引文件不存在")
 
-            airports.append({
-                'code': icao,
-                'name_zh': f'{icao} 机场',
-                'name_en': f'{icao} Airport',
-                'categories': categories,
-                'chart_count': chart_count
-            })
+            airports.append(
+                {
+                    "code": icao,
+                    "name_zh": f"{icao} 机场",
+                    "name_en": f"{icao} Airport",
+                    "categories": categories,
+                    "chart_count": chart_count,
+                }
+            )
 
         logger.info(f"解析机场数据完成，共 {len(airports)} 个机场")
         return airports
@@ -667,13 +722,18 @@ class DataManager(QObject):
         save_path = self._data_path / "airports.json"
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(save_path, 'w', encoding='utf-8') as f:
-            json.dump({
-                'version': '1.0',
-                'airac_period': self._airac_period,
-                'dir_name': self._dir_name,
-                'airports': airports_data
-            }, f, ensure_ascii=False, indent=2)
+        with open(save_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "version": "1.0",
+                    "airac_period": self._airac_period,
+                    "dir_name": self._dir_name,
+                    "airports": airports_data,
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
     @Slot(result=list)
     def loadSavedAirports(self) -> List[Dict[str, Any]]:
@@ -748,8 +808,7 @@ class DataManager(QObject):
             return []
 
         charts = self._eaip_handler.get_chart_list(
-            icao=airport_code,
-            search_type=category if category else None
+            icao=airport_code, search_type=category if category else None
         )
 
         logger.info(f"[DataManager] 从 EAIP Handler 获取到 {len(charts) if charts else 0} 个航图")
@@ -802,7 +861,7 @@ class DataManager(QObject):
                 # 如果是图片数据，需要保存到缓存文件
                 temp_path = self._cache_path / f"{airport_code}_{chart_code}.png"
                 temp_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(temp_path, 'wb') as f:
+                with open(temp_path, "wb") as f:
                     f.write(result)
                 return str(temp_path)
             else:

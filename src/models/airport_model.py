@@ -13,8 +13,8 @@ class Airport:
         self.code = code  # ICAO 代码，如 ZBAA
         self.name_zh = name_zh  # 中文名称
         self.name_en = name_en  # 英文名称
-        self.categories = kwargs.get('categories', [])  # 航图分类列表
-        self.metadata = kwargs.get('metadata', {})  # 其他元数据
+        self.categories = kwargs.get("categories", [])  # 航图分类列表
+        self.metadata = kwargs.get("metadata", {})  # 其他元数据
 
     def __repr__(self):
         return f"Airport({self.code}, {self.name_zh})"
@@ -54,15 +54,17 @@ class AirportModel(QAbstractListModel):
 
     def roleNames(self):
         return {
-            self.CodeRole: b'code',
-            self.NameZhRole: b'nameZh',
-            self.NameEnRole: b'nameEn',
-            self.CategoriesRole: b'categories'
+            self.CodeRole: b"code",
+            self.NameZhRole: b"nameZh",
+            self.NameEnRole: b"nameEn",
+            self.CategoriesRole: b"categories",
         }
 
     def addAirport(self, airport: Airport):
         """添加机场"""
-        self.beginInsertRows(self.index(len(self._airports)), len(self._airports), len(self._airports))
+        self.beginInsertRows(
+            self.index(len(self._airports)), len(self._airports), len(self._airports)
+        )
         self._airports.append(airport)
         self.endInsertRows()
 
@@ -72,11 +74,11 @@ class AirportModel(QAbstractListModel):
         self._airports.clear()
         for data in airports_data:
             airport = Airport(
-                code=data.get('code', ''),
-                name_zh=data.get('name_zh', ''),
-                name_en=data.get('name_en', ''),
-                categories=data.get('categories', []),
-                metadata=data.get('metadata', {})
+                code=data.get("code", ""),
+                name_zh=data.get("name_zh", ""),
+                name_en=data.get("name_en", ""),
+                categories=data.get("categories", []),
+                metadata=data.get("metadata", {}),
             )
             self._airports.append(airport)
         self.endResetModel()

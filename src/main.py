@@ -21,6 +21,7 @@ from controllers import AppController
 def qt_message_handler(msg_type, context, message):
     """Qt 消息处理器 - 将 Qt 消息转发到日志系统"""
     import logging
+
     logger = logging.getLogger("Qt")
 
     if msg_type == QtMsgType.QtDebugMsg:
