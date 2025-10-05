@@ -48,6 +48,7 @@ def build():
         '--windows-console-mode=disable',  # 无控制台窗口
         '--enable-plugin=pyside6',         # PySide6 插件
         '--include-qt-plugins=qml',        # 包含 QML 插件
+        '--include-package=PySide6.QtPdf', # 包含 QtPdf 模块
 
         # 包含数据目录
         '--include-data-dir=src/qml=qml',

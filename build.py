@@ -64,6 +64,7 @@ def build_with_nuitka():
 
         # 包含的包
         "--include-package=PySide6",
+        "--include-package=PySide6.QtPdf",  # 包含 QtPdf 模块
         "--include-package=utils",
         "--include-package=controllers",
         "--include-package=models",

@@ -43,7 +43,7 @@ Rectangle {
                 chartId: chart.id || "",
                 code: chart.code || "",
                 name: chart.name || "",
-                path: chart.path || "",
+                filePath: chart.path || "",
                 sort: chart.sort || ""
             })
         }
@@ -118,14 +118,14 @@ Rectangle {
                         console.log("[ChartList] 航图 ID:", model.chartId)
                         console.log("[ChartList] 航图代码:", model.code)
                         console.log("[ChartList] 航图名称:", model.name)
-                        console.log("[ChartList] 航图路径:", model.path)
+                        console.log("[ChartList] 航图路径:", model.filePath)
                         console.log("[ChartList] 航图分类:", model.sort)
 
                         chartListView.currentIndex = index
 
-                        console.log("[ChartList] 发送 chartSelected 信号，路径:", model.path)
+                        console.log("[ChartList] 发送 chartSelected 信号，路径:", model.filePath)
                         // 发送完整的航图路径
-                        chartSelected(model.path)
+                        chartSelected(model.filePath)
                         console.log("===================================================")
                     }
                 }
@@ -156,9 +156,9 @@ Rectangle {
 
                             // 按需生成缩略图
                             Component.onCompleted: {
-                                if (model.path && model.chartId && appController) {
+                                if (model.filePath && model.chartId && appController) {
                                     // 调用后端生成缩略图
-                                    thumbnailPath = appController.generateThumbnail(model.path, model.chartId)
+                                    thumbnailPath = appController.generateThumbnail(model.filePath, model.chartId)
                                     if (thumbnailPath) {
                                         source = "file:///" + thumbnailPath
                                     }
@@ -183,7 +183,7 @@ Rectangle {
 
                         Text {
                             text: model.code || model.name
-                            font.pixelSize: style.fontSizeMedium
+                            font.pixelSize: style.fontSizeMedium || 14
                             font.bold: true
                             color: theme.textPrimary
                             elide: Text.ElideRight
@@ -192,7 +192,7 @@ Rectangle {
 
                         Text {
                             text: model.name
-                            font.pixelSize: style.fontSizeSmall
+                            font.pixelSize: style.fontSizeSmall || 12
                             color: theme.textSecondary
                             elide: Text.ElideRight
                             Layout.fillWidth: true
@@ -232,7 +232,7 @@ Rectangle {
                                 var chartData = {
                                     "chart_id": model.chartId,
                                     "name": model.name,
-                                    "file_path": model.path,
+                                    "file_path": model.filePath,
                                     "airport_code": chartList.airportCode,
                                     "category": model.sort,
                                     "thumbnail": "",

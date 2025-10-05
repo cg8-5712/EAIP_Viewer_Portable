@@ -452,7 +452,7 @@ class DataManager(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         logger.debug("初始化 DataManager")
-        self._data_path = Path("./data")
+        self._data_path = Path("./data").resolve()  # 转换为绝对路径
         self._extractor = ZipExtractor()
         self._eaip_handler: Optional[EaipHandler] = None
         self._airac_period = "2505"  # 默认周期
