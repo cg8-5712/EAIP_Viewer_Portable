@@ -4,18 +4,19 @@ EAIP Viewer - Electronic Aeronautical Information Publication Viewer
 主程序入口
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
+
+from PySide6.QtCore import QtMsgType, QUrl, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtCore import QUrl, qInstallMessageHandler, QtMsgType
 
 # 添加 src 目录到路径
 sys.path.insert(0, str(Path(__file__).parent))
 
-from utils import Logger
 from controllers import AppController
+from utils import Logger
 
 
 def qt_message_handler(msg_type, context, message):

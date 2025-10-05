@@ -2,7 +2,8 @@
 App Controller - 主控制器，协调各个组件
 """
 
-from PySide6.QtCore import QObject, Signal, Slot, Property
+from PySide6.QtCore import Property, QObject, Signal, Slot
+
 from controllers.data_manager import DataManager
 from controllers.pdf_handler import PdfHandler
 from models import AirportModel, ChartModel, PinModel

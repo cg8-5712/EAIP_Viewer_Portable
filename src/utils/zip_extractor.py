@@ -2,10 +2,11 @@
 Zip Extractor - 压缩包解压工具
 """
 
-import zipfile
 import shutil
+import zipfile
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Callable, Optional
+
 from utils.logger import Logger
 
 logger = Logger.get_logger("ZipExtractor")

@@ -2,8 +2,9 @@
 Pin model for managing pinned charts
 """
 
-from PySide6.QtCore import QObject, Signal, Property, Slot, QAbstractListModel, Qt
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from PySide6.QtCore import Property, QAbstractListModel, QObject, Qt, Signal, Slot
 
 
 class PinnedChart:

@@ -2,9 +2,10 @@
 PDF Handler - 处理 PDF 文件的渲染和操作
 """
 
-from PySide6.QtCore import QObject, Signal, Slot, Property, QUrl
-from PySide6.QtGui import QImage, QPixmap
 from pathlib import Path
+
+from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+from PySide6.QtGui import QImage, QPixmap
 
 try:
     import pymupdf as fitz  # PyMuPDF 新版本导入方式

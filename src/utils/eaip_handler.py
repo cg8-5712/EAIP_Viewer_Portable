@@ -6,8 +6,10 @@ import io
 import json
 import re
 from pathlib import Path
-from typing import Union, List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional, Union
+
 from PIL import Image
+
 from utils.logger import Logger
 
 logger = Logger.get_logger("EaipHandler")

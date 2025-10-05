@@ -2,12 +2,14 @@
 Configuration Manager - 配置管理
 """
 
-from PySide6.QtCore import QObject, Signal, Property, Slot
-from pathlib import Path
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict
-from .path_helper import get_config_file_path, get_app_root, resolve_relative_path
+
+from PySide6.QtCore import Property, QObject, Signal, Slot
+
+from .path_helper import get_app_root, get_config_file_path, resolve_relative_path
 
 
 class Config(QObject):

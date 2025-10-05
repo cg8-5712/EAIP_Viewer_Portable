@@ -2,8 +2,9 @@
 Chart data model
 """
 
-from PySide6.QtCore import QObject, Signal, Property, QAbstractListModel, Qt
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from PySide6.QtCore import Property, QAbstractListModel, QObject, Qt, Signal
 
 
 class Chart:
