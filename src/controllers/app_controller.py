@@ -6,6 +6,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from controllers.data_manager import DataManager
 from controllers.pdf_handler import PdfHandler
+from controllers.pdf_viewer import PdfViewerController
 from models import AirportModel, ChartModel, PinModel
 from utils.config import Config
 from utils.logger import Logger
@@ -33,6 +34,9 @@ class AppController(QObject):
 
         # PDF 处理
         self._pdf_handler = PdfHandler(self)
+
+        # 现代化PDF查看器
+        self._pdf_viewer = PdfViewerController(self)
 
         # 数据模型
         self._airport_model = AirportModel(self)
@@ -116,12 +120,14 @@ class AppController(QObject):
     @Slot(str)
     def openChart(self, file_path: str):
         """
-        打开航图
+        打开航图（通过新的PDF查看器）
 
         Args:
             file_path: 航图文件路径
         """
-        self._pdf_handler.loadPdf(file_path)
+        # 新的架构中，PDF加载由QML直接控制
+        # 这个方法保留用于向后兼容或其他需求
+        self._pdf_viewer.loadPdf(file_path)
 
     @Slot(dict)
     def pinChart(self, chart_data: dict):
@@ -165,14 +171,14 @@ class AppController(QObject):
     @Slot(str)
     def openPinnedChart(self, file_path: str):
         """
-        打开固定的航图
+        打开固定的航图（通过新的PDF查看器）
 
         Args:
             file_path: 航图文件路径
         """
         print(f"[AppController] 打开固定航图: {file_path}")
-        # 使用 PDF Handler 加载 PDF
-        self._pdf_handler.loadPdf(file_path)
+        # 使用新的 PDF 查看器加载
+        self._pdf_viewer.loadPdf(file_path)
 
     @Slot(str, str, result=str)
     def generateThumbnail(self, file_path: str, chart_id: str) -> str:
@@ -212,6 +218,10 @@ class AppController(QObject):
     @Property(QObject, constant=True)
     def pdfHandler(self):
         return self._pdf_handler
+
+    @Property(QObject, constant=True)
+    def pdfViewer(self):
+        return self._pdf_viewer
 
     @Property(QObject, constant=True)
     def airportModel(self):

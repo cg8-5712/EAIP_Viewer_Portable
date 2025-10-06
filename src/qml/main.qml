@@ -117,7 +117,7 @@ ApplicationWindow {
     // 航图查看器组件
     Component {
         id: chartViewerComponent
-        ChartViewer {
+        ModernChartViewer {
             onBackRequested: {
                 // 返回机场列表
                 currentView = "airportList"
