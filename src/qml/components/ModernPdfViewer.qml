@@ -1,5 +1,5 @@
 // ModernPdfViewer.qml - 现代化PDF查看器组件
-// 完全基于PDF格式，支持多页、缩放、导航等功能
+// 完全基于PDF格式，使用Qt PDF原生渲染
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -17,12 +17,9 @@ Rectangle {
 
     // 公共属性
     property alias source: pdfDocument.source
-    property alias currentPage: pageNavigationView.currentPage
+    property int currentPage: 0
     property alias pageCount: pdfDocument.pageCount
     property real zoomFactor: 1.0
-    property int rotation: 0
-    property bool showThumbnails: false
-    property bool showBookmarks: false
 
     // 信号
     signal documentLoaded()
@@ -80,10 +77,14 @@ Rectangle {
 
     function zoomIn() {
         zoomFactor = Math.min(5.0, zoomFactor * 1.25)
+        pdfScrollView.renderScale = zoomFactor
+        console.log("[ModernPdfViewer] 放大到:", Math.round(zoomFactor * 100) + "%")
     }
 
     function zoomOut() {
         zoomFactor = Math.max(0.1, zoomFactor / 1.25)
+        pdfScrollView.renderScale = zoomFactor
+        console.log("[ModernPdfViewer] 缩小到:", Math.round(zoomFactor * 100) + "%")
     }
 
     function zoomToFit() {
@@ -97,6 +98,8 @@ Rectangle {
         const heightRatio = viewHeight / pageSize.height
 
         zoomFactor = Math.min(widthRatio, heightRatio)
+        pdfScrollView.renderScale = zoomFactor
+        console.log("[ModernPdfViewer] 适应页面:", Math.round(zoomFactor * 100) + "%")
     }
 
     function zoomToWidth() {
@@ -106,35 +109,34 @@ Rectangle {
         const viewWidth = contentArea.width - 40
 
         zoomFactor = viewWidth / pageSize.width
+        pdfScrollView.renderScale = zoomFactor
+        console.log("[ModernPdfViewer] 适应宽度:", Math.round(zoomFactor * 100) + "%")
     }
 
     function zoomActualSize() {
         zoomFactor = 1.0
-    }
-
-    function rotateClockwise() {
-        rotation = (rotation + 90) % 360
-    }
-
-    function rotateCounterClockwise() {
-        rotation = (rotation - 90 + 360) % 360
+        pdfScrollView.renderScale = 1.0
+        console.log("[ModernPdfViewer] 实际大小: 100%")
     }
 
     function goToPage(pageNumber) {
         if (pageNumber >= 0 && pageNumber < pageCount) {
-            pageNavigationView.currentPage = pageNumber
+            currentPage = pageNumber
+            root.pageChanged(pageNumber)
         }
     }
 
     function nextPage() {
         if (currentPage < pageCount - 1) {
-            pageNavigationView.currentPage++
+            currentPage++
+            root.pageChanged(currentPage)
         }
     }
 
     function previousPage() {
         if (currentPage > 0) {
-            pageNavigationView.currentPage--
+            currentPage--
+            root.pageChanged(currentPage)
         }
     }
 
@@ -176,12 +178,6 @@ Rectangle {
                         if (page >= 0 && page < pageCount) {
                             goToPage(page)
                         }
-                    }
-
-                    background: Rectangle {
-                        color: theme.inputBackground
-                        border.color: theme.divider
-                        radius: 4
                     }
                 }
 
@@ -249,43 +245,6 @@ Rectangle {
                     ToolTip.text: "实际大小"
                 }
 
-                Rectangle {
-                    width: 1
-                    height: parent.height * 0.6
-                    color: theme.divider
-                }
-
-                // 旋转控件
-                ToolButton {
-                    text: "↺"
-                    onClicked: rotateCounterClockwise()
-                    ToolTip.visible: hovered
-                    ToolTip.text: "逆时针旋转"
-                }
-
-                ToolButton {
-                    text: "↻"
-                    onClicked: rotateClockwise()
-                    ToolTip.visible: hovered
-                    ToolTip.text: "顺时针旋转"
-                }
-
-                Rectangle {
-                    width: 1
-                    height: parent.height * 0.6
-                    color: theme.divider
-                }
-
-                // 视图控件
-                ToolButton {
-                    text: "缩略图"
-                    checkable: true
-                    checked: showThumbnails
-                    onClicked: showThumbnails = !showThumbnails
-                    ToolTip.visible: hovered
-                    ToolTip.text: "显示/隐藏缩略图"
-                }
-
                 Item { Layout.fillWidth: true }
             }
 
@@ -298,122 +257,32 @@ Rectangle {
             }
         }
 
-        // 内容区域
+        // PDF显示区域
         Rectangle {
             id: contentArea
             Layout.fillWidth: true
             Layout.fillHeight: true
             color: theme.isDark ? "#1A1A1A" : "#E0E0E0"
 
-            RowLayout {
+            // 使用PdfScrollablePageView原生组件
+            PdfScrollablePageView {
+                id: pdfScrollView
                 anchors.fill: parent
-                spacing: 0
+                anchors.margins: 10
 
-                // 缩略图侧边栏
-                Rectangle {
-                    id: thumbnailPanel
-                    Layout.preferredWidth: showThumbnails ? 150 : 0
-                    Layout.fillHeight: true
-                    color: theme.cardBackground
-                    visible: showThumbnails
-                    clip: true
+                document: pdfDocument
 
-                    Behavior on Layout.preferredWidth {
-                        NumberAnimation { duration: 200 }
-                    }
-
-                    ListView {
-                        id: thumbnailList
-                        anchors.fill: parent
-                        anchors.margins: 5
-                        spacing: 10
-                        clip: true
-
-                        model: pdfDocument.pageCount
-
-                        delegate: Rectangle {
-                            width: thumbnailList.width - 10
-                            height: 120
-                            color: index === currentPage ? theme.primary : "transparent"
-                            border.color: theme.divider
-                            border.width: 1
-                            radius: 4
-
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: goToPage(index)
-                            }
-
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 5
-                                spacing: 2
-
-                                // 缩略图
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    color: "white"
-
-                                    PdfPageImage {
-                                        anchors.centerIn: parent
-                                        document: pdfDocument
-                                        currentFrame: index
-                                        width: parent.width - 10
-                                        height: parent.height - 10
-                                        fillMode: Image.PreserveAspectFit
-                                    }
-                                }
-
-                                // 页码
-                                Text {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: (index + 1).toString()
-                                    font.pixelSize: style.fontSizeSmall
-                                    color: index === currentPage ? "white" : theme.textSecondary
-                                }
-                            }
-                        }
-                    }
-
-                    // 右侧分隔线
-                    Rectangle {
-                        anchors.right: parent.right
-                        width: 1
-                        height: parent.height
-                        color: theme.divider
-                    }
+                // 设置当前页
+                Component.onCompleted: {
+                    console.log("[PdfScrollablePageView] 组件初始化完成")
                 }
 
-                // PDF显示区域
-                PdfMultiPageView {
-                    id: pageNavigationView
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    document: pdfDocument
-                    renderScale: zoomFactor
-
-                    onCurrentPageChanged: {
-                        root.pageChanged(currentPage)
-                        pageInput.text = (currentPage + 1).toString()
-                    }
-
-                    // 使用鼠标滚轮缩放
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.NoButton
-
-                        onWheel: function(wheel) {
-                            if (wheel.modifiers & Qt.ControlModifier) {
-                                if (wheel.angleDelta.y > 0) {
-                                    zoomIn()
-                                } else {
-                                    zoomOut()
-                                }
-                                wheel.accepted = true
-                            }
-                        }
+                // 监听renderScale变化
+                onRenderScaleChanged: {
+                    console.log("[PdfScrollablePageView] renderScale变化:", renderScale)
+                    // 同步zoomFactor
+                    if (Math.abs(renderScale - zoomFactor) > 0.01) {
+                        zoomFactor = renderScale
                     }
                 }
             }
@@ -423,6 +292,7 @@ Rectangle {
                 anchors.centerIn: parent
                 running: pdfDocument.status === PdfDocument.Loading
                 visible: running
+                z: 10
             }
 
             // 空状态提示
@@ -430,6 +300,7 @@ Rectangle {
                 anchors.centerIn: parent
                 spacing: style.spacingNormal
                 visible: pdfDocument.status === PdfDocument.Null
+                z: 10
 
                 Text {
                     text: "📄"
@@ -450,6 +321,7 @@ Rectangle {
                 anchors.centerIn: parent
                 spacing: style.spacingNormal
                 visible: pdfDocument.status === PdfDocument.Error
+                z: 10
 
                 Text {
                     text: "⚠️"
@@ -557,5 +429,31 @@ Rectangle {
                 }
             }
         }
+    }
+
+    // 鼠标滚轮缩放
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.NoButton
+        propagateComposedEvents: true
+        z: 5
+
+        onWheel: function(wheel) {
+            if (wheel.modifiers & Qt.ControlModifier) {
+                if (wheel.angleDelta.y > 0) {
+                    zoomIn()
+                } else {
+                    zoomOut()
+                }
+                wheel.accepted = true
+            } else {
+                wheel.accepted = false
+            }
+        }
+    }
+
+    // 监听currentPage变化，更新页面输入框
+    onCurrentPageChanged: {
+        pageInput.text = (currentPage + 1).toString()
     }
 }

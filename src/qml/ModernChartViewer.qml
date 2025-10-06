@@ -158,6 +158,7 @@ Page {
             Layout.preferredWidth: 150
             Layout.fillHeight: true
             color: theme.cardBackground
+            z: 10  // 显示在PDF上方
 
             CategoryList {
                 id: categoryList
@@ -182,6 +183,7 @@ Page {
             Layout.preferredWidth: 250
             Layout.fillHeight: true
             color: theme.cardBackground
+            z: 10  // 显示在PDF上方
 
             ChartList {
                 id: chartList
@@ -209,11 +211,12 @@ Page {
             }
         }
 
-        // 右侧：PDF 查看器
+        // 右侧：PDF 查看器（设置在底层）
         ModernPdfViewer {
             id: pdfViewer
             Layout.fillWidth: true
             Layout.fillHeight: true
+            z: 0  // PDF显示在最底层
 
             onDocumentLoaded: {
                 console.log("[ModernChartViewer] PDF加载完成")
